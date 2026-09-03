@@ -11,7 +11,6 @@ export const status = {
   toko: [],
   barang: [],
   tokoSaya: null,      // Set berisi id toko yang jadi tanggung jawab sales ini
-  pengajuanPending: 0, // untuk lencana notifikasi admin
 };
 
 // ------------------------------------------------------------
@@ -78,34 +77,6 @@ export function hapusMasterLokal() {
 }
 
 // ------------------------------------------------------------
-// Lencana notifikasi: berapa pengajuan yang menunggu admin
-// ------------------------------------------------------------
-export async function segarkanPengajuan() {
-  if (status.profil?.peran !== 'admin') { status.pengajuanPending = 0; return 0; }
-  try {
-    const n = await db.rpc('jml_pengajuan_pending');
-    status.pengajuanPending = Number(n) || 0;
-  } catch {
-    status.pengajuanPending = 0;
-  }
-  gambarLencana();
-  return status.pengajuanPending;
-}
-
-function gambarLencana() {
-  const a = document.querySelector('.bar a[href="#/admin"]');
-  if (!a) return;
-  a.querySelector('.lencana')?.remove();
-  if (status.pengajuanPending > 0) {
-    const s = document.createElement('span');
-    s.className = 'lencana';
-    s.textContent = status.pengajuanPending > 99 ? '99+' : String(status.pengajuanPending);
-    s.title = status.pengajuanPending + ' pengajuan menunggu';
-    a.appendChild(s);
-  }
-}
-
-// ------------------------------------------------------------
 // Kerangka halaman
 // ------------------------------------------------------------
 const HALAMAN = {
@@ -149,7 +120,6 @@ function gambarKerangka(kunci) {
 
   document.body.classList.remove('tanpa-bar');
   document.getElementById('btn-keluar').addEventListener('click', keluarSekarang);
-  gambarLencana();
   return document.getElementById('isi');
 }
 
@@ -182,9 +152,7 @@ async function gambarHalaman() {
     isi.innerHTML = `<div class="memuat"><div class="putar"></div>Memuat…</div>`;
 
     const modul = await import(h.modul);
-    await modul.gambar(isi, {
-      status, segarkanMaster, hapusMasterLokal, segarkanPengajuan,
-    });
+    await modul.gambar(isi, { status, segarkanMaster, hapusMasterLokal });
   } catch (e) {
     console.error(e);
     pesan(e.message || 'Terjadi kesalahan.', 'salah');
@@ -211,7 +179,6 @@ async function gambarLogin() {
     setelahMasuk: async (pr) => {
       status.profil = pr;
       await segarkanMaster({ paksa: true });
-      segarkanPengajuan();
       if (!location.hash) location.hash = '#/order';
       gambarHalaman();
     },
@@ -264,13 +231,6 @@ async function mulai() {
   if (!location.hash) location.hash = '#/order';
   await gambarHalaman();
   segarkanMaster().catch(() => {});
-  segarkanPengajuan();
-
-  // Notifikasi pengajuan: periksa berkala + saat kembali ke aplikasi
-  setInterval(() => { if (status.profil) segarkanPengajuan(); }, 60_000);
-  document.addEventListener('visibilitychange', () => {
-    if (!document.hidden && status.profil) segarkanPengajuan();
-  });
 }
 
 window.addEventListener('hashchange', () => {

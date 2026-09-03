@@ -5,7 +5,7 @@
    Arah rupa: grafit + teal + amber. Bahan bangunan, bukan aplikasi bank.
    - grafit  : kepala halaman, tombol utama
    - teal    : keadaan aktif, tautan, fokus
-   - amber   : khusus status MENUNGGU (bukan warna merek)
+   - amber   : peringatan & usulan yang perlu dirapikan admin
    - hijau   : uang
    ============================================================ */
 
@@ -137,15 +137,6 @@ body.tanpa-bar .bar { display: none; }
   content: ''; position: absolute; top: 0; left: 50%;
   width: 26px; height: 3px; margin-left: -13px;
   background: var(--aksen); border-radius: 0 0 3px 3px;
-}
-/* lencana notifikasi di bar bawah */
-.bar a .lencana {
-  position: absolute; top: 9px; left: 50%; margin-left: 6px;
-  min-width: 18px; height: 18px; padding: 0 5px;
-  background: var(--merah); color: #fff;
-  border-radius: 999px; font-size: 11px; font-weight: 700;
-  display: flex; align-items: center; justify-content: center;
-  box-shadow: 0 0 0 2px var(--permukaan);
 }
 
 /* ---------- Kartu ---------- */
@@ -383,9 +374,6 @@ body.tanpa-bar .btn.blok-bawah { bottom: 12px; }
 }
 .tanda.usul    { background: var(--tunggu-muda); color: var(--tunggu); }
 .tanda.mati    { background: var(--merah-muda); color: var(--merah); }
-.tanda.tunggu  { background: var(--tunggu-muda); color: var(--tunggu); }
-.tanda.setuju  { background: var(--hijau-muda); color: var(--hijau); }
-.tanda.tolak   { background: var(--merah-muda); color: var(--merah); }
 .tanda.admin   { background: var(--aksen-muda); color: var(--aksen-tua); }
 
 /* ---------- Catatan tambahan ---------- */
@@ -399,29 +387,6 @@ body.tanpa-bar .btn.blok-bawah { bottom: 12px; }
   display: block; font-size: 11.5px; color: var(--teks-3);
   margin-top: 5px; font-weight: 600;
 }
-
-/* ---------- Blok pengajuan ---------- */
-.pengajuan-kotak {
-  background: var(--tunggu-muda); border-radius: var(--r-kecil);
-  padding: 13px 14px; margin-top: 12px; font-size: 13.5px;
-  color: #6d3f05; line-height: 1.5;
-}
-.pengajuan-kotak.setuju { background: var(--hijau-muda); color: #0a5537; }
-.pengajuan-kotak.tolak  { background: var(--merah-muda); color: #8d2a20; }
-.pengajuan-kotak b { display: block; margin-bottom: 4px; }
-
-.banding {
-  display: grid; gap: 10px; margin-top: 4px;
-}
-.banding .kolom {
-  background: var(--permukaan-2); border-radius: var(--r-kecil);
-  padding: 12px 13px; font-size: 13px;
-}
-.banding .kolom .judul-bagian { margin-bottom: 8px; }
-.banding .kolom.baru { background: var(--aksen-muda); }
-.banding table { width: 100%; border-collapse: collapse; }
-.banding td { padding: 5px 0; vertical-align: top; overflow-wrap: anywhere; }
-.banding td:last-child { text-align: right; white-space: nowrap; padding-left: 10px; font-weight: 650; }
 
 /* ---------- Tab admin ---------- */
 .tab {
@@ -437,13 +402,6 @@ body.tanpa-bar .btn.blok-bawah { bottom: 12px; }
   display: inline-flex; align-items: center; gap: 7px;
 }
 .tab button.aktif { background: var(--ink); border-color: var(--ink); color: #fff; }
-.tab button .lencana {
-  min-width: 19px; height: 19px; padding: 0 5px;
-  background: var(--merah); color: #fff;
-  border-radius: 999px; font-size: 11px; font-weight: 700;
-  display: inline-flex; align-items: center; justify-content: center;
-}
-.tab button.aktif .lencana { background: #fff; color: var(--ink); }
 
 /* ---------- Login ---------- */
 .masuk { padding: 34px 20px 30px; }

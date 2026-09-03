@@ -1,7 +1,7 @@
 // Halaman admin: lihat semua order, ekspor Excel, kelola master & akun.
 
 import * as db from '../db.js';
-import { buatFormOrder, tabelRingkas } from '../form-order.js';
+import { buatFormOrder } from '../form-order.js';
 import { buatFormBarang } from '../form-barang.js';
 import {
   esc, rupiah, angka, keAngka, hariIni, tanggalPendek,
@@ -11,13 +11,8 @@ import {
 let tabAktif = 'order';
 
 export async function gambar(isi, ctx) {
-  const nunggu = ctx.status.pengajuanPending || 0;
-
   isi.innerHTML = `
     <div class="tab" id="tab">
-      <button type="button" data-t="pengajuan">📬 Pengajuan${
-        nunggu ? `<span class="lencana">${esc(nunggu)}</span>` : ''
-      }</button>
       <button type="button" data-t="order">📄 Order</button>
       <button type="button" data-t="toko">🏪 Toko</button>
       <button type="button" data-t="barang">📦 Barang</button>
@@ -27,9 +22,6 @@ export async function gambar(isi, ctx) {
 
   const panel = isi.querySelector('#panel');
 
-  // Ada pengajuan menunggu? Buka tab itu dulu — itu yang perlu diputuskan.
-  if (nunggu > 0 && tabAktif === 'order') tabAktif = 'pengajuan';
-
   isi.querySelector('#tab').addEventListener('click', (e) => {
     const b = e.target.closest('[data-t]');
     if (!b) return;
@@ -38,20 +30,6 @@ export async function gambar(isi, ctx) {
   });
 
   pilihTab(panel, isi, ctx);
-}
-
-/** Perbarui angka lencana di tab & bar bawah setelah admin memutuskan. */
-async function segarkanLencana(isi, ctx) {
-  const n = await ctx.segarkanPengajuan();
-  const tombol = isi.querySelector('#tab [data-t="pengajuan"]');
-  if (!tombol) return;
-  tombol.querySelector('.lencana')?.remove();
-  if (n > 0) {
-    const s = document.createElement('span');
-    s.className = 'lencana';
-    s.textContent = String(n);
-    tombol.appendChild(s);
-  }
 }
 
 function pilihTab(panel, isi, ctx) {
@@ -66,181 +44,11 @@ function pilihTab(panel, isi, ctx) {
   wadah.innerHTML = `<div class="memuat"><div class="putar"></div>Memuat…</div>`;
   panel.replaceChildren(wadah);
 
-  const jalan = {
-    pengajuan: (w, c) => tabPengajuan(w, c, isi),
-    order: tabOrder, toko: tabToko, barang: tabBarang, akun: tabAkun,
-  }[tabAktif];
+  const jalan = { order: tabOrder, toko: tabToko, barang: tabBarang, akun: tabAkun }[tabAktif];
   jalan(wadah, ctx).catch((e) => {
     console.error(e);
     wadah.innerHTML = `<div class="kosong-pesan"><span class="ikon">⚠️</span>${esc(e.message || 'Gagal memuat.')}</div>`;
   });
-}
-
-/* ============================================================
-   TAB PENGAJUAN — yang perlu diputuskan admin
-   ============================================================ */
-async function tabPengajuan(panel, ctx, isi) {
-  panel.innerHTML = `
-    <div class="tab" id="saring-pgj" style="margin-bottom:12px">
-      <button type="button" data-s="pending" class="aktif">Menunggu</button>
-      <button type="button" data-s="semua">Semua</button>
-    </div>
-    <div id="daftar-pgj"><div class="memuat"><div class="putar"></div>Memuat…</div></div>`;
-
-  const wadah = panel.querySelector('#daftar-pgj');
-  let saring = 'pending';
-  let namaSales = {};
-
-  panel.querySelector('#saring-pgj').addEventListener('click', (e) => {
-    const b = e.target.closest('[data-s]');
-    if (!b) return;
-    saring = b.dataset.s;
-    panel.querySelectorAll('#saring-pgj button').forEach((x) =>
-      x.classList.toggle('aktif', x.dataset.s === saring));
-    muat();
-  });
-
-  async function muat() {
-    wadah.innerHTML = `<div class="memuat"><div class="putar"></div>Memuat…</div>`;
-
-    const q = {
-      select: 'id,no_pengajuan,pesanan_id,diajukan_oleh,jenis,alasan,usulan,sebelum,' +
-              'status,catatan_admin,dibuat_pada,' +
-              'pesanan(no_pesanan,tanggal,toko_nama,total)',
-      order: 'dibuat_pada.desc',
-      limit: 200,
-    };
-    if (saring === 'pending') q.status = 'eq.pending';
-
-    const [baris, profil] = await Promise.all([
-      db.pilih('pengajuan', q),
-      db.pilih('profil', { select: 'id,nama,kode_sales' }),
-    ]);
-    namaSales = Object.fromEntries(profil.map((p) => [p.id, p.nama + (p.kode_sales ? ' (' + p.kode_sales + ')' : '')]));
-
-    if (!baris.length) {
-      wadah.innerHTML = `<div class="kosong-pesan"><span class="ikon">📭</span>${
-        saring === 'pending'
-          ? 'Tidak ada pengajuan yang menunggu.<br>Semua sudah diputus.'
-          : 'Belum ada pengajuan.'
-      }</div>`;
-      return;
-    }
-
-    wadah.innerHTML = baris.map((g) => kartuPengajuan(g, namaSales)).join('');
-  }
-
-  wadah.addEventListener('click', async (e) => {
-    const kepala = e.target.closest('.riwayat-kepala');
-    if (kepala) {
-      const box = wadah.querySelector('#pg-' + CSS.escape(kepala.dataset.id));
-      if (box) box.hidden = !box.hidden;
-      return;
-    }
-
-    const setuju = e.target.closest('[data-setuju]');
-    const tolak = e.target.closest('[data-tolak]');
-    if (!setuju && !tolak) return;
-
-    const id = Number((setuju || tolak).dataset.setuju || (setuju || tolak).dataset.tolak);
-    const ya = !!setuju;
-
-    if (!(await tanya(
-      ya ? 'Setujui pengajuan ini?' : 'Tolak pengajuan ini?',
-      ya ? 'Order akan langsung diubah / dihapus sesuai usulan sales.'
-         : 'Order tetap seperti sekarang. Sales akan melihat penolakan ini.',
-      ya ? 'Ya, setujui' : 'Ya, tolak'))) return;
-
-    const catatan = prompt(ya ? 'Catatan untuk sales (boleh dikosongkan):'
-                              : 'Alasan penolakan (boleh dikosongkan):');
-    if (catatan === null) return;
-
-    try {
-      await db.rpc('putuskan_pengajuan', {
-        p_id: id, p_setuju: ya, p_catatan: catatan.trim() || null,
-      });
-      pesan(ya ? 'Pengajuan disetujui, order sudah diperbarui.' : 'Pengajuan ditolak.', 'ok');
-      await muat();
-      await segarkanLencana(isi, ctx);
-    } catch (err) {
-      pesan(err.message, 'salah');
-    }
-  });
-
-  await muat();
-}
-
-function kartuPengajuan(g, namaSales) {
-  const p = g.pesanan || {};
-  const jenis = g.jenis === 'hapus' ? 'Pembatalan order' : 'Perubahan isi order';
-  const t = { pending: 'tunggu', disetujui: 'setuju', ditolak: 'tolak' }[g.status];
-  const label = { pending: 'Menunggu', disetujui: 'Disetujui', ditolak: 'Ditolak' }[g.status];
-  const nunggu = g.status === 'pending';
-
-  const itemLama = g.sebelum?.item || [];
-  const itemBaru = g.usulan?.item || [];
-  const totalLama = itemLama.reduce((s, i) => s + (Number(i.qty) || 0) * (Number(i.harga) || 0), 0);
-  const totalBaru = itemBaru.reduce((s, i) => s + (Number(i.qty) || 0) * (Number(i.harga) || 0), 0);
-
-  return `
-  <div class="riwayat">
-    <button type="button" class="riwayat-kepala" data-id="${esc(g.id)}">
-      <span class="kiri">
-        <span class="toko">${esc(jenis)}</span>
-        <span class="meta">
-          <span class="kode">${esc(g.no_pengajuan)}</span>
-          <span>${esc(namaSales[g.diajukan_oleh] || '—')}</span>
-          <span class="tanda ${t}">${esc(label)}</span>
-        </span>
-        <span class="meta">${esc(p.toko_nama || '')} · <span class="kode">${esc(p.no_pesanan || '')}</span></span>
-      </span>
-      <span class="uang">${esc(rupiah(p.total))}</span>
-    </button>
-
-    <div class="riwayat-isi" id="pg-${esc(g.id)}" hidden>
-      ${g.alasan ? `<div class="pengajuan-kotak"><b>Alasan sales</b>${esc(g.alasan)}</div>` : ''}
-
-      ${g.jenis === 'hapus' ? `
-        <div class="banding" style="margin-top:12px">
-          <div class="kolom">
-            <div class="judul-bagian">Order yang diminta dibatalkan</div>
-            ${tabelRingkas(itemLama)}
-            <div class="sub-item"><span>Total</span><b>${esc(rupiah(totalLama))}</b></div>
-          </div>
-        </div>` : `
-        <div class="banding" style="margin-top:12px">
-          <div class="kolom">
-            <div class="judul-bagian">Sebelum</div>
-            ${tabelRingkas(itemLama)}
-            <div class="sub-item"><span>Total</span><b>${esc(rupiah(totalLama))}</b></div>
-          </div>
-          <div class="kolom baru">
-            <div class="judul-bagian">Usulan sales</div>
-            ${g.usulan?.toko_nama && g.usulan.toko_nama !== g.sebelum?.toko_nama
-              ? `<div class="bantuan" style="margin:0 0 8px">Toko diganti jadi:
-                  <b>${esc(g.usulan.toko_nama)}</b></div>` : ''}
-            ${tabelRingkas(itemBaru)}
-            <div class="sub-item"><span>Total</span><b>${esc(rupiah(totalBaru))}</b></div>
-            ${g.usulan?.catatan ? `<div class="ket" style="margin-top:8px">📝 ${esc(g.usulan.catatan)}</div>` : ''}
-          </div>
-        </div>
-        <div class="bantuan">Selisih total:
-          <b style="color:${totalBaru >= totalLama ? 'var(--hijau)' : 'var(--merah)'}">
-            ${totalBaru >= totalLama ? '+' : '−'}${esc(rupiah(Math.abs(totalBaru - totalLama)))}</b></div>`}
-
-      ${g.catatan_admin ? `<div class="pengajuan-kotak ${
-        g.status === 'disetujui' ? 'setuju' : 'tolak'
-      }"><b>Catatan admin</b>${esc(g.catatan_admin)}</div>` : ''}
-
-      ${nunggu ? `
-      <div class="tombol-baris" style="margin-top:14px">
-        <button type="button" class="btn hijau kecil" style="width:100%"
-                data-setuju="${esc(g.id)}">✔ Setujui</button>
-        <button type="button" class="btn abu kecil" style="width:100%;color:var(--merah)"
-                data-tolak="${esc(g.id)}">Tolak</button>
-      </div>` : ''}
-    </div>
-  </div>`;
 }
 
 /* ============================================================
@@ -423,7 +231,7 @@ async function tabOrder(panel, ctx) {
   await tampilkan();
 }
 
-/** Admin mengubah order langsung — tanpa pengajuan. */
+/** Admin mengubah order. Hanya admin yang boleh. */
 function bukaUbahOrder(p, ctx, selesai) {
   const item = (p.pesanan_item || []).slice().sort((a, b) => a.urut - b.urut);
 

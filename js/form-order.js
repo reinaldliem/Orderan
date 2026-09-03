@@ -1,11 +1,10 @@
-// Form isi order yang dipakai di TIGA tempat:
-//   1. Sales membuat order baru        (pages/order.js)
-//   2. Sales mengajukan perubahan      (pages/riwayat.js)
-//   3. Admin mengubah order            (pages/admin.js)
+// Form isi order yang dipakai di DUA tempat:
+//   1. Sales membuat order baru   (pages/order.js)
+//   2. Admin mengubah order       (pages/admin.js)
 // Satu tempat saja supaya aturan harga per-kilo tidak ditulis berulang.
 
 import { buatPilih } from './pilih.js';
-import { esc, rupiah, angka, keAngka, pesan, tanya } from './util.js';
+import { rupiah, angka, keAngka, pesan, tanya } from './util.js';
 
 /**
  * @param {object} o
@@ -312,16 +311,4 @@ export function buatFormOrder(o) {
     fokusToko: () => pilihToko.el.scrollIntoView({ behavior: 'smooth', block: 'center' }),
     bukaToko: () => pilihToko.buka(),
   };
-}
-
-/** Tabel ringkas isi order — dipakai untuk membandingkan sebelum/sesudah. */
-export function tabelRingkas(item) {
-  if (!item?.length) return '<div class="bantuan">Tidak ada barang.</div>';
-  return `<table>${item
-    .map(
-      (i) => `<tr><td>${esc(i.barang_nama)}
-        <div class="ket">${esc(angka(i.qty))} ${esc(i.satuan)} × ${esc(rupiah(i.harga))}</div></td>
-        <td>${esc(rupiah((Number(i.qty) || 0) * (Number(i.harga) || 0)))}</td></tr>`
-    )
-    .join('')}</table>`;
 }
