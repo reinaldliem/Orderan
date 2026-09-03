@@ -1,0 +1,10 @@
+# JANGAN unggah ke repo publik — isinya rahasia:
+sql/          # 02-akun.sql memuat PIN semua sales
+data/         # HPP barang & daftar pelanggan
+*.xlsx
+*.pdf
+*.csv
+CARA-PASANG.md
+CATATAN-*.md
+CLAUDE.md
+.claude/
