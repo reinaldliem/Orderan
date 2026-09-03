@@ -156,9 +156,14 @@ export function unduh(namaFile, isi, tipe = 'text/csv;charset=utf-8') {
 }
 
 /**
- * CSV siap buka di Excel Indonesia: pemisah titik-koma + baris sep= + BOM UTF-8.
+ * CSV untuk EXCEL INDONESIA: pemisah titik-koma + baris sep= + BOM UTF-8,
+ * desimal pakai KOMA. Excel langsung membuka kolomnya dengan benar.
+ *
+ * JANGAN dipakai untuk Google Sheets — Sheets tidak mengerti baris `sep=;`
+ * sehingga semua isinya jatuh ke satu kolom. Pakai keCSVSheet() untuk itu.
+ *
  * @param {string[]} kolom
- * @param {Array<Array<any>>} baris
+ * @param {Array<Array<any>>} baris  angka boleh sudah berupa teks desimal-koma
  */
 export function keCSV(kolom, baris) {
   const sel = (v) => {
@@ -167,6 +172,26 @@ export function keCSV(kolom, baris) {
   };
   const isi = [kolom.map(sel).join(';'), ...baris.map((r) => r.map(sel).join(';'))].join('\r\n');
   return '﻿' + 'sep=;\r\n' + isi; // BOM biar Excel Indonesia tidak salah encoding
+}
+
+/**
+ * CSV untuk GOOGLE SHEETS: pemisah koma, TANPA baris sep=, desimal pakai TITIK.
+ * Google Sheets memisahkan kolomnya sendiri dan membaca angkanya sebagai angka.
+ *
+ * Angka dikirim apa adanya (number), jangan diformat dulu.
+ *
+ * @param {string[]} kolom
+ * @param {Array<Array<any>>} baris
+ */
+export function keCSVSheet(kolom, baris) {
+  const sel = (v) => {
+    if (v === null || v === undefined) return '';
+    if (typeof v === 'number') return String(v);   // titik sebagai desimal
+    const s = String(v);
+    return /[",\n\r]/.test(s) ? '"' + s.replaceAll('"', '""') + '"' : s;
+  };
+  const isi = [kolom.map(sel).join(','), ...baris.map((r) => r.map(sel).join(','))].join('\r\n');
+  return '﻿' + isi;
 }
 
 /** Pecah tempelan dari Excel jadi array baris berisi kolom. */

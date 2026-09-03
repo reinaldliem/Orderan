@@ -5,7 +5,7 @@ import { buatFormOrder } from '../form-order.js';
 import { buatFormBarang } from '../form-barang.js';
 import {
   esc, rupiah, angka, keAngka, hariIni, tanggalPendek,
-  pesan, tanya, unduh, keCSV, pecahTempelan, rincianItem, lembar,
+  pesan, tanya, unduh, keCSV, keCSVSheet, pecahTempelan, rincianItem, lembar,
 } from '../util.js';
 
 let tabAktif = 'order';
@@ -72,6 +72,13 @@ async function tabOrder(panel, ctx) {
       <div class="tombol-baris">
         <button type="button" class="btn" id="btn-tampil">Tampilkan</button>
         <button type="button" class="btn hijau" id="btn-excel">⬇ Excel</button>
+      </div>
+      <button type="button" class="btn abu kecil" id="btn-sheet"
+              style="width:100%;margin-top:8px">⬇ Google Sheet</button>
+      <div class="bantuan">
+        <b>Excel</b>: pemisah titik-koma, langsung rapi di Excel Indonesia.<br>
+        <b>Google Sheet</b>: pemisah koma — di Google Sheets pilih
+        <b>File → Import → Replace/Insert</b>, kolomnya terpisah sendiri.
       </div>
     </div>
     <div class="ringkas" id="ringkas"></div>
@@ -189,15 +196,23 @@ async function tabOrder(panel, ctx) {
 
   panel.querySelector('#btn-tampil').addEventListener('click', () => tampilkan().catch((e) => pesan(e.message, 'salah')));
 
-  panel.querySelector('#btn-excel').addEventListener('click', async (e) => {
-    const b = e.currentTarget;
-    b.disabled = true;
-    b.textContent = 'Menyiapkan…';
+  /**
+   * Satu fungsi untuk dua tujuan.
+   *   'excel' -> pemisah ";" + baris sep= + desimal koma  (Excel Indonesia)
+   *   'sheet' -> pemisah ","  tanpa sep=  + desimal titik  (Google Sheets)
+   * Google Sheets tidak mengerti baris "sep=;", makanya berkas Excel
+   * jatuh ke satu kolom di sana.
+   */
+  async function ekspor(tujuan, tombol) {
+    const teksAsli = tombol.textContent;
+    tombol.disabled = true;
+    tombol.textContent = 'Menyiapkan…';
     try {
       const d1 = panel.querySelector('#d1').value || awal;
       const d2 = panel.querySelector('#d2').value || akhir;
       const q = {
-        select: 'tanggal,no_pesanan,sales,toko,barang,satuan,jumlah,harga,harga_per_kg,total_kg,subtotal,catatan',
+        select: 'tanggal,no_pesanan,sales,toko,barang,satuan,jumlah,harga,' +
+                'harga_per_kg,total_kg,subtotal,catatan',
         and: `(tanggal.gte.${d1},tanggal.lte.${d2})`,
         order: 'tanggal.desc,no_pesanan.desc,urut.asc',
         limit: 20000,
@@ -206,27 +221,46 @@ async function tabOrder(panel, ctx) {
       const baris = await db.pilih('v_ekspor', q);
       if (!baris.length) { pesan('Tidak ada data untuk diunduh.', 'salah'); return; }
 
-      // Excel Indonesia pakai koma sebagai desimal
-      const des = (v) => (v === null || v === undefined ? '' : String(v).replace('.', ','));
+      const kolom = ['Tanggal', 'No Order', 'Sales', 'Toko', 'Barang', 'Satuan',
+                     'Jumlah', 'Harga Satuan', 'Harga per Kg', 'Total Kg',
+                     'Subtotal', 'Catatan'];
 
-      const csv = keCSV(
-        ['Tanggal', 'No Order', 'Sales', 'Toko', 'Barang', 'Satuan', 'Jumlah',
-         'Harga Satuan', 'Harga per Kg', 'Total Kg', 'Subtotal', 'Catatan'],
-        baris.map((r) => [
+      let isi;
+      if (tujuan === 'sheet') {
+        // angka dikirim sebagai number -> desimal titik, dibaca sebagai angka
+        const n = (v) => (v === null || v === undefined || v === '' ? '' : Number(v));
+        isi = keCSVSheet(kolom, baris.map((r) => [
+          r.tanggal, r.no_pesanan, r.sales, r.toko, r.barang, r.satuan,
+          n(r.jumlah), n(r.harga), n(r.harga_per_kg), n(r.total_kg),
+          n(r.subtotal), r.catatan || '',
+        ]));
+      } else {
+        // Excel Indonesia: desimal pakai koma
+        const des = (v) => (v === null || v === undefined ? '' : String(v).replace('.', ','));
+        isi = keCSV(kolom, baris.map((r) => [
           r.tanggal, r.no_pesanan, r.sales, r.toko, r.barang, r.satuan,
           des(r.jumlah), des(r.harga), des(r.harga_per_kg), des(r.total_kg),
           des(r.subtotal), r.catatan || '',
-        ])
-      );
-      unduh(`order-${d1}-sd-${d2}.csv`, csv);
-      pesan(`${baris.length} baris diunduh. Buka dengan Excel.`, 'ok');
+        ]));
+      }
+
+      const nama = `order-${d1}-sd-${d2}${tujuan === 'sheet' ? '-sheet' : ''}.csv`;
+      await unduh(nama, isi);
+      pesan(`${baris.length} baris diunduh.` +
+            (tujuan === 'sheet' ? ' Buka Google Sheets → File → Import.' : ' Buka dengan Excel.'),
+            'ok');
     } catch (err) {
       pesan(err.message || 'Gagal mengunduh.', 'salah');
     } finally {
-      b.disabled = false;
-      b.textContent = '⬇ Excel';
+      tombol.disabled = false;
+      tombol.textContent = teksAsli;
     }
-  });
+  }
+
+  panel.querySelector('#btn-excel').addEventListener('click',
+    (e) => ekspor('excel', e.currentTarget));
+  panel.querySelector('#btn-sheet').addEventListener('click',
+    (e) => ekspor('sheet', e.currentTarget));
 
   await tampilkan();
 }
