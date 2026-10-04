@@ -2,6 +2,7 @@
 
 import * as db from '../db.js';
 import { buatFormOrder } from '../form-order.js';
+import { ikon } from '../ikon.js';
 import { esc, rupiah, hariIni, tanggalPanjang, pesan, tanya } from '../util.js';
 
 const KUNCI_DRAF = 'order-draf-v2';
@@ -13,16 +14,17 @@ export async function gambar(isi, ctx) {
   const tgl = hariIni();
   const draf = bacaDraf(tgl);
 
+  // Baris kode batch: tanggal dan kode sales, kecil, di paling atas —
+  // seperti kode cetak di pojok karung. Bukan kartu tersendiri.
+  const kode = [tanggalPanjang(tgl), status.profil?.kode_sales || status.profil?.nama]
+    .filter(Boolean).map(esc).join(' · ');
+
   isi.innerHTML = `
-    <div class="kartu rapat">
-      <div class="judul-bagian">Tanggal order</div>
-      <div style="font-size:17px;font-weight:700;letter-spacing:-.02em">
-        📅 ${esc(tanggalPanjang(tgl))}
-      </div>
-      <div class="bantuan">Terisi otomatis hari ini.</div>
-    </div>
+    <div class="baris-batch">${ikon('tanggal', 15)}<span>${kode}</span></div>
     <div id="slot-form"></div>
-    <button type="button" class="btn hijau blok-bawah" id="btn-simpan">✔ Simpan Order</button>
+    <button type="button" class="btn hijau blok-bawah" id="btn-simpan">
+      ${ikon('centang', 20)}Simpan Order
+    </button>
     <div class="bantuan" style="text-align:center;margin-top:12px">
       Isian tersimpan sementara di HP — aman kalau aplikasi tertutup.
     </div>`;
@@ -67,7 +69,7 @@ export async function gambar(isi, ctx) {
       `${d.toko_nama} · ${d.item.length} barang · total ${rupiah(total)}`, 'Ya, simpan'))) return;
 
     btn.disabled = true;
-    btn.textContent = 'Menyimpan…';
+    btn.innerHTML = 'Menyimpan…';
     try {
       const hasil = await db.rpc('buat_pesanan', { p_data: d });
       localStorage.removeItem(KUNCI_DRAF);
@@ -77,7 +79,7 @@ export async function gambar(isi, ctx) {
       pesan(e.message || 'Gagal menyimpan.', 'salah');
     } finally {
       btn.disabled = false;
-      btn.textContent = '✔ Simpan Order';
+      btn.innerHTML = ikon('centang', 20) + 'Simpan Order';
     }
   });
 }
@@ -94,17 +96,19 @@ function bacaDraf(tgl) {
 }
 
 function tampilkanBerhasil(isi, hasil, ctx) {
+  // Order yang selesai dicap, bukan diberi tanda centang hijau raksasa:
+  // nomornya distensil besar, totalnya duduk di blok terbalik.
   isi.innerHTML = `
-    <div class="kartu" style="text-align:center;padding:30px 18px">
-      <div style="font-size:50px;line-height:1">✅</div>
-      <h2 style="font-size:20px;margin:12px 0 6px">Order tersimpan</h2>
-      <p style="color:var(--teks-2);margin:0 0 20px;font-size:14.5px;line-height:1.6">
-        Nomor order <span class="kode">${esc(hasil.no_pesanan)}</span><br>
-        Total <b style="color:var(--teks)">${esc(rupiah(hasil.total))}</b>
-      </p>
-      <button type="button" class="btn hijau" id="btn-lagi">+ Buat order lagi</button>
+    <div class="tercetak">
+      <div class="tercetak-cap">${ikon('centang', 22)}<span>Tersimpan</span></div>
+      <div class="tercetak-no">${esc(hasil.no_pesanan)}</div>
+      <div class="total-kotak">
+        <span class="lbl">Total order</span>
+        <span class="nilai">${esc(rupiah(hasil.total))}</span>
+      </div>
+      <button type="button" class="btn" id="btn-lagi">${ikon('tambah', 20)}Buat order lagi</button>
       <div style="height:10px"></div>
-      <a class="btn abu" href="#/riwayat" style="text-decoration:none">Lihat order saya</a>
+      <a class="btn abu" href="#/riwayat">Lihat order saya</a>
     </div>`;
 
   isi.querySelector('#btn-lagi').addEventListener('click', () => gambar(isi, ctx));

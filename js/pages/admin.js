@@ -1,6 +1,7 @@
 // Halaman admin: lihat semua order, ekspor Excel, kelola master & akun.
 
 import * as db from '../db.js';
+import { ikon } from '../ikon.js';
 import { buatFormOrder } from '../form-order.js';
 import { buatFormBarang } from '../form-barang.js';
 import {
@@ -13,10 +14,10 @@ let tabAktif = 'order';
 export async function gambar(isi, ctx) {
   isi.innerHTML = `
     <div class="tab" id="tab">
-      <button type="button" data-t="order">📄 Order</button>
-      <button type="button" data-t="toko">🏪 Toko</button>
-      <button type="button" data-t="barang">📦 Barang</button>
-      <button type="button" data-t="akun">👤 Akun</button>
+      <button type="button" data-t="order">${ikon('nota', 17)}Order</button>
+      <button type="button" data-t="toko">${ikon('toko', 17)}Toko</button>
+      <button type="button" data-t="barang">${ikon('barang', 17)}Barang</button>
+      <button type="button" data-t="akun">${ikon('akun', 17)}Akun</button>
     </div>
     <div id="panel"></div>`;
 
@@ -47,7 +48,7 @@ function pilihTab(panel, isi, ctx) {
   const jalan = { order: tabOrder, toko: tabToko, barang: tabBarang, akun: tabAkun }[tabAktif];
   jalan(wadah, ctx).catch((e) => {
     console.error(e);
-    wadah.innerHTML = `<div class="kosong-pesan"><span class="ikon">⚠️</span>${esc(e.message || 'Gagal memuat.')}</div>`;
+    wadah.innerHTML = `<div class="kosong-pesan"><span class="ikon">${ikon('peringatan', 40)}</span>${esc(e.message || 'Gagal memuat.')}</div>`;
   });
 }
 
@@ -71,10 +72,10 @@ async function tabOrder(panel, ctx) {
       </div>
       <div class="tombol-baris">
         <button type="button" class="btn" id="btn-tampil">Tampilkan</button>
-        <button type="button" class="btn hijau" id="btn-excel">⬇ Excel</button>
+        <button type="button" class="btn hijau" id="btn-excel">${ikon('unduh', 18)}Excel</button>
       </div>
       <button type="button" class="btn abu kecil" id="btn-sheet"
-              style="width:100%;margin-top:8px">⬇ Google Sheet</button>
+              style="width:100%;margin-top:8px">${ikon('unduh', 18)}Google Sheet</button>
       <div class="bantuan">
         <b>Excel</b>: pemisah titik-koma, langsung rapi di Excel Indonesia.<br>
         <b>Google Sheet</b>: pemisah koma — di Google Sheets pilih
@@ -126,7 +127,7 @@ async function tabOrder(panel, ctx) {
       )}</div></div>`;
 
     if (!baris.length) {
-      hasil.innerHTML = `<div class="kosong-pesan"><span class="ikon">📄</span>Tidak ada order pada rentang ini.</div>`;
+      hasil.innerHTML = `<div class="kosong-pesan"><span class="ikon">${ikon('kosong', 40)}</span>Tidak ada order pada rentang ini.</div>`;
       return;
     }
 
@@ -150,7 +151,7 @@ async function tabOrder(panel, ctx) {
                   <td>${esc(rupiah(i.subtotal))}</td></tr>`
               )
               .join('')}</table>
-            ${p.catatan ? `<div class="ket" style="margin-top:10px">📝 ${esc(p.catatan)}</div>` : ''}
+            ${p.catatan ? `<div class="ket catatan-cap">${ikon('catatan', 14)}${esc(p.catatan)}</div>` : ''}
             ${(p.pesanan_catatan || []).length ? `<div class="catatan-daftar">${
               (p.pesanan_catatan || []).map((c) => `<div class="catatan-baris">${esc(c.teks)}
                 <span class="siapa">Catatan tambahan dari sales</span></div>`).join('')
@@ -560,7 +561,7 @@ async function tabMaster(panel, ctx, o) {
       <input type="text" id="cari" placeholder="Cari ${esc(o.judul.toLowerCase())}…" autocomplete="off">
       <div class="tombol-baris" style="margin-top:10px">
         <button type="button" class="btn kecil" id="btn-tambah" style="width:auto">+ Tambah</button>
-        <button type="button" class="btn abu kecil" id="btn-impor" style="width:auto">📋 Tempel dari Excel</button>
+        <button type="button" class="btn abu kecil" id="btn-impor" style="width:auto">${ikon('tempel', 17)}Tempel dari Excel</button>
       </div>
       <div class="bantuan" id="hitung"></div>
     </div>
@@ -584,7 +585,7 @@ async function tabMaster(panel, ctx, o) {
     }
 
     if (!cocok.length) {
-      wadah.innerHTML = `<div class="kosong-pesan"><span class="ikon">📭</span>${
+      wadah.innerHTML = `<div class="kosong-pesan"><span class="ikon">${ikon('kosong', 40)}</span>${
         data.length ? 'Tidak ada yang cocok.' : 'Belum ada data. Tekan "Tempel dari Excel" untuk mengisi sekaligus.'
       }</div>`;
       return;

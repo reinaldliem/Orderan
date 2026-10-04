@@ -2,6 +2,7 @@
 
 import { BELUM_DISETEL } from './config.js';
 import * as db from './db.js';
+import { ikon } from './ikon.js';
 import { esc, pesan } from './util.js';
 
 const app = document.getElementById('app');
@@ -80,9 +81,9 @@ export function hapusMasterLokal() {
 // Kerangka halaman
 // ------------------------------------------------------------
 const HALAMAN = {
-  order:   { judul: 'Buat Order', ikon: '📝', label: 'Order',   modul: './pages/order.js' },
-  riwayat: { judul: 'Order Saya', ikon: '📄', label: 'Riwayat', modul: './pages/riwayat.js' },
-  admin:   { judul: 'Admin',      ikon: '⚙️', label: 'Admin',   modul: './pages/admin.js', adminSaja: true },
+  order:   { judul: 'Buat Order', ikon: 'nota',    label: 'Order',   modul: './pages/order.js' },
+  riwayat: { judul: 'Order Saya', ikon: 'riwayat', label: 'Riwayat', modul: './pages/riwayat.js' },
+  admin:   { judul: 'Admin',      ikon: 'admin',   label: 'Admin',   modul: './pages/admin.js', adminSaja: true },
 };
 
 function rutaSekarang() {
@@ -105,7 +106,7 @@ function gambarKerangka(kunci) {
         }</div>
       </div>
       <div class="kanan">
-        <button type="button" class="btn-atas" id="btn-keluar">Keluar</button>
+        <button type="button" class="btn-atas" id="btn-keluar">${ikon('keluar', 17)}Keluar</button>
       </div>
     </header>
     <main class="isi" id="isi"></main>
@@ -113,7 +114,7 @@ function gambarKerangka(kunci) {
       ${menu
         .map(
           ([k, v]) => `<a href="#/${k}" class="${k === kunci ? 'aktif' : ''}">
-              <span class="ikon">${v.ikon}</span><span>${esc(v.label)}</span></a>`
+              ${ikon(v.ikon, 21)}<span>${esc(v.label)}</span></a>`
         )
         .join('')}
     </nav>`;
@@ -159,7 +160,7 @@ async function gambarHalaman() {
     const isi = document.getElementById('isi');
     if (isi) {
       isi.innerHTML = `<div class="kosong-pesan">
-        <span class="ikon">⚠️</span>${esc(e.message || 'Terjadi kesalahan.')}
+        <span class="ikon">${ikon('peringatan', 40)}</span>${esc(e.message || 'Terjadi kesalahan.')}
         <div style="margin-top:16px"><button type="button" class="btn abu kecil"
           onclick="location.reload()">Muat ulang</button></div>
       </div>`;
@@ -182,6 +183,34 @@ async function gambarLogin() {
       if (!location.hash) location.hash = '#/order';
       gambarHalaman();
     },
+  });
+}
+
+// ------------------------------------------------------------
+// Batas waktu sesi
+//
+// Kalau sesi habis saat aplikasi sedang terbuka, pengguna harus langsung
+// dikembalikan ke layar masuk — bukan dibiarkan mengetik satu order penuh
+// lalu baru ditolak waktu menekan Simpan.
+//
+// Dicek tiap menit DAN setiap kali aplikasi kembali terlihat, karena di HP
+// timer sering dibekukan selama aplikasi ada di latar belakang.
+// ------------------------------------------------------------
+async function cekSesi() {
+  if (!status.profil) return;    // sudah di layar masuk
+  if (db.adaSesi()) return;      // masih berlaku
+
+  hapusMasterLokal();
+  status.profil = null;
+  location.hash = '';
+  await gambarLogin();
+  pesan('Sesi Anda sudah berakhir. Silakan masuk lagi.', 'salah');
+}
+
+function pantauSesi() {
+  setInterval(cekSesi, 60_000);
+  document.addEventListener('visibilitychange', () => {
+    if (!document.hidden) cekSesi();
   });
 }
 
@@ -238,4 +267,5 @@ window.addEventListener('hashchange', () => {
 });
 
 pantauPapanTombol();
+pantauSesi();
 mulai();

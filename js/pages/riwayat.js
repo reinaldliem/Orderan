@@ -3,6 +3,7 @@
 // Kalau ada yang salah, sales menambah catatan, admin yang memperbaiki.
 
 import * as db from '../db.js';
+import { ikon } from '../ikon.js';
 import {
   esc, rupiah, tanggalPendek, pesan, rincianItem, lembar,
 } from '../util.js';
@@ -60,7 +61,7 @@ export async function gambar(isi, ctx) {
   function gambarDaftar() {
     if (!semua.length) {
       elDaftar.innerHTML = `<div class="kosong-pesan">
-        <span class="ikon">📄</span>Belum ada order.<br>
+        <span class="ikon">${ikon('kosong', 40)}</span>Belum ada order.<br>
         Buat order pertama Anda di tab <b>Order</b>.</div>`;
       return;
     }
@@ -134,7 +135,7 @@ function kartuOrder(p) {
         <td>${esc(i.barang_nama)}<div class="ket">${esc(rincianItem(i))}</div></td>
         <td>${esc(rupiah(i.subtotal))}</td></tr>`).join('')}</table>
 
-      ${p.catatan ? `<div class="ket" style="margin-top:12px">📝 ${esc(p.catatan)}</div>` : ''}
+      ${p.catatan ? `<div class="ket catatan-cap">${ikon('catatan', 14)}${esc(p.catatan)}</div>` : ''}
 
       ${catatan.length ? `<div class="catatan-daftar">${catatan
         .map((c) => `<div class="catatan-baris">${esc(c.teks)}

@@ -8,3 +8,14 @@ CARA-PASANG.md
 CATATAN-*.md
 CLAUDE.md
 .claude/
+
+# --- tambahan rombakan rupa (Okt 2026) ---
+# Berkas kerja perkakas desain, bukan bagian aplikasi:
+.impeccable/*
+# ...kecuali berkas token pendamping DESIGN.md, yang memang pasangannya:
+!.impeccable/design.json
+# PRODUCT.md & halaman uji rupa memuat nama toko pelanggan dan konteks
+# bisnis internal — alasan yang sama dengan data/ di atas.
+PRODUCT.md
+# Hasil rakitan kanvas desain (±2 MB, bisa dibuat ulang dari *.dc.html):
+design/*.html

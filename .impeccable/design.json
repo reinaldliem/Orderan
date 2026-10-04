@@ -1,0 +1,441 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-10-04T15:21:35Z",
+  "title": "Design System: Order Sales",
+  "extensions": {
+    "colorMeta": {
+      "tinta": {
+        "role": "primary",
+        "displayName": "Tinta Cetak",
+        "canonical": "oklch(19.0% 0.010 67.1)",
+        "tonalRamp": [
+          "oklch(15.0% 0.010 67.1)",
+          "oklch(26.4% 0.010 67.1)",
+          "oklch(37.9% 0.010 67.1)",
+          "oklch(49.3% 0.010 67.1)",
+          "oklch(60.7% 0.010 67.1)",
+          "oklch(72.1% 0.010 67.1)",
+          "oklch(83.6% 0.010 67.1)",
+          "oklch(95.0% 0.010 67.1)"
+        ]
+      },
+      "tinta-tekan": {
+        "role": "primary",
+        "displayName": "Tinta Tekan",
+        "canonical": "oklch(0.0% 0.000 0.0)",
+        "tonalRamp": [
+          "oklch(15.0% 0.000 0.0)",
+          "oklch(26.4% 0.000 0.0)",
+          "oklch(37.9% 0.000 0.0)",
+          "oklch(49.3% 0.000 0.0)",
+          "oklch(60.7% 0.000 0.0)",
+          "oklch(72.1% 0.000 0.0)",
+          "oklch(83.6% 0.000 0.0)",
+          "oklch(95.0% 0.000 0.0)"
+        ]
+      },
+      "tinta-2": {
+        "role": "neutral",
+        "displayName": "Tinta Tipis",
+        "canonical": "oklch(46.3% 0.039 81.6)",
+        "tonalRamp": [
+          "oklch(15.0% 0.039 81.6)",
+          "oklch(26.4% 0.039 81.6)",
+          "oklch(37.9% 0.039 81.6)",
+          "oklch(49.3% 0.039 81.6)",
+          "oklch(60.7% 0.039 81.6)",
+          "oklch(72.1% 0.039 81.6)",
+          "oklch(83.6% 0.039 81.6)",
+          "oklch(95.0% 0.039 81.6)"
+        ]
+      },
+      "tinta-3": {
+        "role": "neutral",
+        "displayName": "Tinta Paling Tipis",
+        "canonical": "oklch(57.2% 0.048 85.0)",
+        "tonalRamp": [
+          "oklch(15.0% 0.048 85.0)",
+          "oklch(26.4% 0.048 85.0)",
+          "oklch(37.9% 0.048 85.0)",
+          "oklch(49.3% 0.048 85.0)",
+          "oklch(60.7% 0.048 85.0)",
+          "oklch(72.1% 0.048 85.0)",
+          "oklch(83.6% 0.048 85.0)",
+          "oklch(95.0% 0.048 85.0)"
+        ]
+      },
+      "kraft": {
+        "role": "neutral",
+        "displayName": "Kraft",
+        "canonical": "oklch(86.2% 0.035 82.9)",
+        "tonalRamp": [
+          "oklch(15.0% 0.035 82.9)",
+          "oklch(26.4% 0.035 82.9)",
+          "oklch(37.9% 0.035 82.9)",
+          "oklch(49.3% 0.035 82.9)",
+          "oklch(60.7% 0.035 82.9)",
+          "oklch(72.1% 0.035 82.9)",
+          "oklch(83.6% 0.035 82.9)",
+          "oklch(95.0% 0.035 82.9)"
+        ]
+      },
+      "kraft-tua": {
+        "role": "neutral",
+        "displayName": "Kraft Tua",
+        "canonical": "oklch(80.4% 0.045 83.2)",
+        "tonalRamp": [
+          "oklch(15.0% 0.045 83.2)",
+          "oklch(26.4% 0.045 83.2)",
+          "oklch(37.9% 0.045 83.2)",
+          "oklch(49.3% 0.045 83.2)",
+          "oklch(60.7% 0.045 83.2)",
+          "oklch(72.1% 0.045 83.2)",
+          "oklch(83.6% 0.045 83.2)",
+          "oklch(95.0% 0.045 83.2)"
+        ]
+      },
+      "kraft-muda": {
+        "role": "neutral",
+        "displayName": "Kraft Muda",
+        "canonical": "oklch(89.8% 0.028 81.5)",
+        "tonalRamp": [
+          "oklch(15.0% 0.028 81.5)",
+          "oklch(26.4% 0.028 81.5)",
+          "oklch(37.9% 0.028 81.5)",
+          "oklch(49.3% 0.028 81.5)",
+          "oklch(60.7% 0.028 81.5)",
+          "oklch(72.1% 0.028 81.5)",
+          "oklch(83.6% 0.028 81.5)",
+          "oklch(95.0% 0.028 81.5)"
+        ]
+      },
+      "kraft-pudar": {
+        "role": "neutral",
+        "displayName": "Kraft Pudar",
+        "canonical": "oklch(74.7% 0.049 83.9)",
+        "tonalRamp": [
+          "oklch(15.0% 0.049 83.9)",
+          "oklch(26.4% 0.049 83.9)",
+          "oklch(37.9% 0.049 83.9)",
+          "oklch(49.3% 0.049 83.9)",
+          "oklch(60.7% 0.049 83.9)",
+          "oklch(72.1% 0.049 83.9)",
+          "oklch(83.6% 0.049 83.9)",
+          "oklch(95.0% 0.049 83.9)"
+        ]
+      },
+      "blok": {
+        "role": "neutral",
+        "displayName": "Blok",
+        "canonical": "oklch(95.3% 0.016 86.4)",
+        "tonalRamp": [
+          "oklch(15.0% 0.016 86.4)",
+          "oklch(26.4% 0.016 86.4)",
+          "oklch(37.9% 0.016 86.4)",
+          "oklch(49.3% 0.016 86.4)",
+          "oklch(60.7% 0.016 86.4)",
+          "oklch(72.1% 0.016 86.4)",
+          "oklch(83.6% 0.016 86.4)",
+          "oklch(95.0% 0.016 86.4)"
+        ]
+      },
+      "blok-fokus": {
+        "role": "neutral",
+        "displayName": "Blok Fokus",
+        "canonical": "oklch(99.4% 0.007 88.6)",
+        "tonalRamp": [
+          "oklch(15.0% 0.007 88.6)",
+          "oklch(26.4% 0.007 88.6)",
+          "oklch(37.9% 0.007 88.6)",
+          "oklch(49.3% 0.007 88.6)",
+          "oklch(60.7% 0.007 88.6)",
+          "oklch(72.1% 0.007 88.6)",
+          "oklch(83.6% 0.007 88.6)",
+          "oklch(95.0% 0.007 88.6)"
+        ]
+      },
+      "garis": {
+        "role": "neutral",
+        "displayName": "Garis",
+        "canonical": "oklch(73.7% 0.052 85.1)",
+        "tonalRamp": [
+          "oklch(15.0% 0.052 85.1)",
+          "oklch(26.4% 0.052 85.1)",
+          "oklch(37.9% 0.052 85.1)",
+          "oklch(49.3% 0.052 85.1)",
+          "oklch(60.7% 0.052 85.1)",
+          "oklch(72.1% 0.052 85.1)",
+          "oklch(83.6% 0.052 85.1)",
+          "oklch(95.0% 0.052 85.1)"
+        ]
+      },
+      "garis-kuat": {
+        "role": "neutral",
+        "displayName": "Garis Kuat",
+        "canonical": "oklch(59.4% 0.056 84.2)",
+        "tonalRamp": [
+          "oklch(15.0% 0.056 84.2)",
+          "oklch(26.4% 0.056 84.2)",
+          "oklch(37.9% 0.056 84.2)",
+          "oklch(49.3% 0.056 84.2)",
+          "oklch(60.7% 0.056 84.2)",
+          "oklch(72.1% 0.056 84.2)",
+          "oklch(83.6% 0.056 84.2)",
+          "oklch(95.0% 0.056 84.2)"
+        ]
+      },
+      "sinyal": {
+        "role": "secondary",
+        "displayName": "Merah Oksida",
+        "canonical": "oklch(51.9% 0.165 32.9)",
+        "tonalRamp": [
+          "oklch(15.0% 0.165 32.9)",
+          "oklch(26.4% 0.165 32.9)",
+          "oklch(37.9% 0.165 32.9)",
+          "oklch(49.3% 0.165 32.9)",
+          "oklch(60.7% 0.165 32.9)",
+          "oklch(72.1% 0.165 32.9)",
+          "oklch(83.6% 0.165 32.9)",
+          "oklch(95.0% 0.165 32.9)"
+        ]
+      },
+      "sinyal-muda": {
+        "role": "secondary",
+        "displayName": "Merah Oksida Muda",
+        "canonical": "oklch(91.3% 0.023 48.5)",
+        "tonalRamp": [
+          "oklch(15.0% 0.023 48.5)",
+          "oklch(26.4% 0.023 48.5)",
+          "oklch(37.9% 0.023 48.5)",
+          "oklch(49.3% 0.023 48.5)",
+          "oklch(60.7% 0.023 48.5)",
+          "oklch(72.1% 0.023 48.5)",
+          "oklch(83.6% 0.023 48.5)",
+          "oklch(95.0% 0.023 48.5)"
+        ]
+      },
+      "tunggu": {
+        "role": "tertiary",
+        "displayName": "Kuning Tanah",
+        "canonical": "oklch(50.9% 0.103 70.8)",
+        "tonalRamp": [
+          "oklch(15.0% 0.103 70.8)",
+          "oklch(26.4% 0.103 70.8)",
+          "oklch(37.9% 0.103 70.8)",
+          "oklch(49.3% 0.103 70.8)",
+          "oklch(60.7% 0.103 70.8)",
+          "oklch(72.1% 0.103 70.8)",
+          "oklch(83.6% 0.103 70.8)",
+          "oklch(95.0% 0.103 70.8)"
+        ]
+      },
+      "tunggu-muda": {
+        "role": "tertiary",
+        "displayName": "Kuning Tanah Muda",
+        "canonical": "oklch(89.8% 0.040 84.6)",
+        "tonalRamp": [
+          "oklch(15.0% 0.040 84.6)",
+          "oklch(26.4% 0.040 84.6)",
+          "oklch(37.9% 0.040 84.6)",
+          "oklch(49.3% 0.040 84.6)",
+          "oklch(60.7% 0.040 84.6)",
+          "oklch(72.1% 0.040 84.6)",
+          "oklch(83.6% 0.040 84.6)",
+          "oklch(95.0% 0.040 84.6)"
+        ]
+      }
+    },
+    "typographyMeta": {
+      "display": {
+        "displayName": "Display",
+        "purpose": "Identitas aplikasi di layar masuk. Muncul tepat sekali."
+      },
+      "headline": {
+        "displayName": "Headline",
+        "purpose": "Angka yang menjadi keputusan: total order, nomor order."
+      },
+      "title": {
+        "displayName": "Title",
+        "purpose": "Judul halaman di kepala dan nilai pada sel ringkasan."
+      },
+      "subtitle": {
+        "displayName": "Subtitle",
+        "purpose": "Nama toko, judul blok, teks tombol utama, subtotal."
+      },
+      "body": {
+        "displayName": "Body",
+        "purpose": "Isian dan teks berjalan. 16px wajib: di bawah itu iOS memperbesar layar sendiri."
+      },
+      "label": {
+        "displayName": "Label",
+        "purpose": "Nama kolom, nama bagian, kode batch. Selalu huruf besar."
+      }
+    },
+    "shadows": [],
+    "motion": [
+      {
+        "name": "tekan",
+        "value": "cubic-bezier(.23, 1, .32, 1)",
+        "purpose": "Satu-satunya easing sistem ini. Keluar cepat lalu melambat, tanpa pantulan."
+      },
+      {
+        "name": "durasi-tekan",
+        "value": "120ms",
+        "purpose": "Umpan balik tekanan tinta pada setiap benda yang bisa ditekan."
+      },
+      {
+        "name": "durasi-cetak",
+        "value": "160ms",
+        "purpose": "Blok total mencetak ulang dari blur(2px) ke tajam saat nilainya berubah."
+      },
+      {
+        "name": "skala-tekan",
+        "value": "scale(.97)",
+        "purpose": "Besaran mengecilnya benda saat ditekan. Tidak pernah lebih dalam dari ini."
+      }
+    ],
+    "breakpoints": [
+      {
+        "name": "sempit",
+        "value": "374px"
+      },
+      {
+        "name": "kolom",
+        "value": "560px"
+      }
+    ]
+  },
+  "components": [
+    {
+      "name": "Tombol Utama",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "Tindakan utama tiap layar. Palang tinta penuh lebar.",
+      "html": "<button class=\"ds-btn\"><svg width=\"20\" height=\"20\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"square\" stroke-linejoin=\"miter\"><path d=\"m4 12.5 5.5 5.5L20 7\"/></svg>Simpan Order</button>",
+      "css": ".ds-btn { display: inline-flex; align-items: center; justify-content: center; gap: 9px; width: 100%; min-height: 52px; padding: 13px 20px; font-family: Anton, Archivo, system-ui, sans-serif; font-weight: 400; font-size: 19px; letter-spacing: .03em; text-transform: uppercase; line-height: 1; background: #17130f; color: #f4efe4; border: 2px solid #17130f; border-radius: 0; cursor: pointer; text-decoration: none; transition: transform .12s cubic-bezier(.23,1,.32,1), background .12s cubic-bezier(.23,1,.32,1); } .ds-btn:hover { background: #000; } .ds-btn:focus-visible { outline: 3px solid #17130f; outline-offset: 2px; } .ds-btn:active { transform: scale(.97); background: #000; }"
+    },
+    {
+      "name": "Tombol Garis",
+      "kind": "button",
+      "refersTo": "button-ghost",
+      "description": "Tindakan sekunder. Tepi tinta, ladang kosong.",
+      "html": "<button class=\"ds-btn-ghost\">Lihat order saya</button>",
+      "css": ".ds-btn-ghost { display: inline-flex; align-items: center; justify-content: center; gap: 9px; width: 100%; min-height: 52px; padding: 13px 20px; font-family: Anton, Archivo, system-ui, sans-serif; font-weight: 400; font-size: 19px; letter-spacing: .03em; text-transform: uppercase; line-height: 1; background: transparent; color: #17130f; border: 2px solid #17130f; border-radius: 0; cursor: pointer; transition: transform .12s cubic-bezier(.23,1,.32,1), background .12s cubic-bezier(.23,1,.32,1); } .ds-btn-ghost:hover { background: #cdbd9f; } .ds-btn-ghost:focus-visible { outline: 3px solid #17130f; outline-offset: 2px; } .ds-btn-ghost:active { transform: scale(.97); background: #cdbd9f; }"
+    },
+    {
+      "name": "Isian",
+      "kind": "input",
+      "refersTo": "input-field",
+      "description": "Setiap isian teks dan angka. 16px wajib supaya iOS tidak memperbesar layar sendiri.",
+      "html": "<label class=\"ds-label\">Jumlah</label><input class=\"ds-input\" value=\"1.221\">",
+      "css": ".ds-label { display: block; font-family: Archivo, system-ui, sans-serif; font-size: 11.5px; font-weight: 700; color: #645740; margin-bottom: 6px; letter-spacing: .1em; text-transform: uppercase; } .ds-input { width: 100%; font-family: Archivo, system-ui, sans-serif; font-size: 16px; font-weight: 600; font-variant-numeric: tabular-nums; padding: 12px 13px; min-height: 52px; border: 2px solid #8e7c58; border-radius: 0; background: #f4efe4; color: #17130f; appearance: none; transition: border-color .12s cubic-bezier(.23,1,.32,1), background .12s cubic-bezier(.23,1,.32,1); } .ds-input::placeholder { color: #857657; font-weight: 500; } .ds-input:focus { outline: none; border-color: #17130f; background: #fffdf8; }"
+    },
+    {
+      "name": "Blok Tercetak",
+      "kind": "card",
+      "refersTo": "block-card",
+      "description": "Wadah utama. Garis tinta, tanpa bayangan, tanpa radius.",
+      "html": "<div class=\"ds-card\"><div class=\"ds-card-head\">Toko</div><div>TOKO BANGUNAN JAYA</div></div>",
+      "css": ".ds-card { background: #e7dcc9; border: 2px solid #17130f; border-radius: 0; padding: 15px; font-family: Archivo, system-ui, sans-serif; color: #17130f; } .ds-card-head { font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .13em; color: #645740; margin-bottom: 9px; }"
+    },
+    {
+      "name": "Blok Total",
+      "kind": "custom",
+      "refersTo": "reversed-total",
+      "description": "Komponen penanda sistem. Angka keputusan dibalik, bukan dibesarkan; mencetak ulang saat nilainya berubah.",
+      "html": "<div class=\"ds-total\"><span class=\"ds-total-lbl\">Total order</span><span class=\"ds-total-nilai\">Rp 12.210.000</span></div>",
+      "css": ".ds-total { display: flex; justify-content: space-between; align-items: center; gap: 12px; background: #17130f; border-radius: 0; padding: 14px 16px; } .ds-total-lbl { font-family: Archivo, system-ui, sans-serif; font-size: 10.5px; font-weight: 700; color: #bcab8a; text-transform: uppercase; letter-spacing: .14em; } .ds-total-nilai { font-family: Anton, Archivo, system-ui, sans-serif; font-weight: 400; font-size: 34px; color: #f4efe4; line-height: 1; font-variant-numeric: tabular-nums; animation: ds-cetak .16s cubic-bezier(.23,1,.32,1); } @keyframes ds-cetak { from { filter: blur(2px); opacity: .55; } to { filter: blur(0); opacity: 1; } }"
+    },
+    {
+      "name": "Tanda Keadaan",
+      "kind": "chip",
+      "refersTo": "state-chip",
+      "description": "Keadaan dibedakan BENTUK, bukan warna: garis penuh, garis putus, coretan, pembalikan.",
+      "html": "<span class=\"ds-tanda\">Draf</span> <span class=\"ds-tanda ds-tanda-tunggu\">Perlu diperiksa</span> <span class=\"ds-tanda ds-tanda-mati\">Nonaktif</span> <span class=\"ds-tanda ds-tanda-admin\">Admin</span>",
+      "css": ".ds-tanda { display: inline-flex; align-items: center; gap: 5px; font-family: Archivo, system-ui, sans-serif; font-size: 10.5px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; padding: 3px 8px; border-radius: 0; background: none; color: #645740; border: 2px solid #8e7c58; white-space: nowrap; } .ds-tanda-tunggu { border-style: dashed; color: #8a5a12; border-color: #8a5a12; } .ds-tanda-mati { color: #b4371f; border-color: #b4371f; text-decoration: line-through; } .ds-tanda-admin { background: #17130f; border-color: #17130f; color: #f4efe4; }"
+    },
+    {
+      "name": "Bar Bawah",
+      "kind": "nav",
+      "refersTo": "nav-item-active",
+      "description": "Palang tercetak di dasar layar. Tautan aktif DIBALIK, bukan diberi warna aksen.",
+      "html": "<nav class=\"ds-bar\"><a class=\"ds-bar-a ds-bar-aktif\" href=\"#\">Order</a><a class=\"ds-bar-a\" href=\"#\">Riwayat</a><a class=\"ds-bar-a\" href=\"#\">Admin</a></nav>",
+      "css": ".ds-bar { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); background: #e7dcc9; border-top: 3px solid #17130f; } .ds-bar-a { display: flex; align-items: center; justify-content: center; min-height: 66px; text-decoration: none; color: #645740; font-family: Archivo, system-ui, sans-serif; font-size: 10.5px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; transition: color .12s cubic-bezier(.23,1,.32,1); } .ds-bar-a + .ds-bar-a { border-left: 2px solid #b9a885; } .ds-bar-a:hover { color: #17130f; } .ds-bar-aktif { color: #f4efe4; background: #17130f; }"
+    },
+    {
+      "name": "Cap Tersimpan",
+      "kind": "custom",
+      "refersTo": "stamp",
+      "description": "Konfirmasi order. Cap yang ditekan tangan tidak pernah lurus sempurna.",
+      "html": "<div class=\"ds-cap\"><svg width=\"20\" height=\"20\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"square\" stroke-linejoin=\"miter\"><path d=\"m4 12.5 5.5 5.5L20 7\"/></svg><span>Tersimpan</span></div><div class=\"ds-cap-no\">SO-261002-003</div>",
+      "css": ".ds-cap { display: inline-flex; align-items: center; gap: 8px; border: 3px solid #17130f; padding: 7px 13px; font-family: Archivo, system-ui, sans-serif; font-size: 13px; font-weight: 700; letter-spacing: .16em; text-transform: uppercase; color: #17130f; transform: rotate(-1.5deg); margin-bottom: 18px; } .ds-cap-no { font-family: Anton, Archivo, system-ui, sans-serif; font-weight: 400; font-size: 40px; line-height: .95; letter-spacing: .01em; text-transform: uppercase; color: #17130f; font-variant-numeric: tabular-nums; }"
+    }
+  ],
+  "narrative": {
+    "northStar": "Sak Semen",
+    "overview": "Permukaan karung semen sudah menjadi sistem informasi jauh sebelum ada aplikasi. Satu tinta pekat ditekan ke kertas kraft kasar. Nama produk distensil setinggi mungkin supaya terbaca dari ujung gudang. Beratnya duduk di dalam blok terbalik, bukan sekadar dicetak lebih besar. Kode batch berbisik kecil di pojok. Tidak ada satu pun bayangan, tidak ada satu pun sudut membulat, dan tidak ada yang melayang.\n\nSistem ini meminjam disiplin itu secara utuh, bukan sebagai hiasan. Aplikasinya dipakai sales sambil berdiri di dalam toko bangunan, satu tangan memegang HP, pelanggan menunggu di depan, matahari siang memantul di layar. Kraft dengan tinta nyaris hitam memberi kontras paling keras yang bisa diberikan sepasang warna.\n\nYang ditolak sistem ini dinyatakan terang-terangan: kartu putih melayang di atas abu muda, sudut membulat, bayangan lembut, satu aksen teal. Susunan itu bukan buruk; ia hanya tidak bisa dibedakan dari aplikasi order mana pun.",
+    "keyCharacteristics": [
+      "Kertas kraft sebagai ladang, tinta pekat sebagai satu-satunya suara",
+      "Huruf stensil kondensasi untuk setiap angka yang penting",
+      "Nol bayangan — kedalaman dinyatakan garis tinta, bukan ketinggian",
+      "Keadaan ditandai bentuk cetak, bukan perbedaan warna",
+      "Warna dikurung di tepi; ladang data tetap tanpa warna",
+      "Satu gagasan gerak saja: tekanan tinta"
+    ],
+    "rules": [
+      {
+        "name": "The Confined Colour Rule",
+        "section": "colors",
+        "body": "Merah oksida muncul di tepat lima tempat dan semuanya bahaya. Ladang datanya sendiri selamanya tanpa warna. Uji: kalau sebuah warna dipakai untuk menyenangkan mata dan bukan untuk memperingatkan, ia salah tempat."
+      },
+      {
+        "name": "The Tinted Grey Rule",
+        "section": "colors",
+        "body": "Tidak ada abu-abu di sistem ini. Setiap teks sekunder diturunkan dari rona kraft, sehingga terbaca sebagai tinta yang menipis di atas kertas. Ambang kontras terendah yang terukur 4,63:1."
+      },
+      {
+        "name": "The Stencil-For-Numbers Rule",
+        "section": "typography",
+        "body": "Anton dipakai untuk angka dan nama yang menjadi keputusan, tidak pernah untuk kalimat. Kalau sebuah teks perlu dibaca dua kali untuk dimengerti, ia bukan milik Anton."
+      },
+      {
+        "name": "The No-Mono Rule",
+        "section": "typography",
+        "body": "Sistem ini tidak punya muka monospace. Kode dan nomor memakai muka body yang direnggangkan dengan tabular-nums. Menambah muka ketiga hanya demi kesan teknis adalah kostum, bukan sistem."
+      },
+      {
+        "name": "The One-Hand Rule",
+        "section": "layout",
+        "body": "Setiap alur utama harus bisa diselesaikan satu tangan sambil berdiri. Apa pun yang menuntut dua tangan, layar lebar, atau tempat menaruh HP adalah kegagalan rancangan."
+      },
+      {
+        "name": "The Ink-On-Paper Rule",
+        "section": "elevation",
+        "body": "Tidak ada bayangan, tidak ada gradien, tidak ada kaca buram, dan tidak ada elemen yang mengambang. Kalau sesuatu perlu dibedakan dari sekitarnya, ia diberi garis tinta atau dibalik, tidak pernah diangkat."
+      },
+      {
+        "name": "The Reversed Block Rule",
+        "section": "elevation",
+        "body": "Angka yang menjadi keputusan duduk di dalam blok terbalik, bukan sekadar dibesarkan. Itulah cara karung menandai beratnya."
+      }
+    ],
+    "dos": [
+      "Do letakkan setiap angka keputusan di dalam blok terbalik (ladang #17130f, teks #f4efe4), bukan sekadar membesarkan hurufnya.",
+      "Do nyatakan keadaan dengan bentuk cetak (garis penuh, garis putus-putus, coretan, pembalikan) supaya tetap terbaca di bawah matahari dan tetap terbaca kalau dicetak hitam-putih.",
+      "Do turunkan setiap teks sekunder dari rona kraft (#645740, #857657) dan ukur kontrasnya; ambang terendah yang diterima 4,5:1.",
+      "Do beri warna pada permukaan bawaan peramban: pilihan teks, caret, batang gulir, cincin fokus, tombol kalender, dan code.",
+      "Do pakai satu gagasan gerak saja: scale(.97) dengan pemekatan tinta, 120ms, cubic-bezier(.23, 1, .32, 1).",
+      "Do gambar ikon baru pada kisi 24 dengan goresan 2, ujung siku dan sudut lancip, lalu daftarkan di js/ikon.js."
+    ],
+    "donts": [
+      "Don’t menambahkan box-shadow apa pun. Sistem ini nol bayangan, dan itu terukur.",
+      "Don’t membulatkan sudut. Radiusnya nol, termasuk pada tombol, isian, tanda, dan lembar.",
+      "Don’t memakai merah oksida untuk apa pun selain bahaya, atau memasukkan warna ke dalam ladang data.",
+      "Don’t memakai abu-abu netral. Setiap nada redup diturunkan dari kraft.",
+      "Don’t memakai emoji sebagai ikon. Emoji dirender berbeda di tiap HP, ukurannya tidak bisa dikendalikan, dan warnanya tidak ikut tema.",
+      "Don’t menambah muka huruf ketiga, terutama monospace, hanya untuk memberi kesan teknis.",
+      "Don’t memberi pantulan pada gerak apa pun, dan jangan menganimasikan tindakan yang dipicu papan tombol.",
+      "Don’t memakai Anton untuk kalimat, atau Archivo untuk angka yang harus terbaca dari seberang meja."
+    ]
+  }
+}

@@ -3,6 +3,7 @@
 // pemilik tidak perlu membuka berkas kode sama sekali.
 
 import { CONFIG, simpanSambungan } from '../config.js';
+import { ikon } from '../ikon.js';
 import { esc, pesan } from '../util.js';
 
 /** Baca isi tengah token JWT tanpa memverifikasi apa pun — hanya untuk cek peran. */
@@ -162,8 +163,8 @@ export async function gambar(app, { setelahTersambung }) {
     }
     const u = bersihkanUrl(t);
     if (URL_BENAR.test(u)) {
-      elCekUrl.textContent = '✔ Terbaca sebagai: ' + u;
-      elCekUrl.style.color = 'var(--hijau)';
+      elCekUrl.innerHTML = ikon('centang', 16) + ' Terbaca sebagai: ' + esc(u);
+      elCekUrl.style.color = 'var(--tinta)';
     } else {
       elCekUrl.textContent = 'Belum terbaca. Tempel alamat lengkap dari address bar Supabase.';
       elCekUrl.style.color = 'var(--tunggu)';
@@ -176,10 +177,10 @@ export async function gambar(app, { setelahTersambung }) {
       elCek.textContent = 'Teksnya panjang — tempel saja seluruhnya.';
       elCek.style.color = '';
     } else if (peran === 'anon') {
-      elCek.textContent = '✔ Kunci benar (anon public).';
-      elCek.style.color = 'var(--hijau)';
+      elCek.innerHTML = ikon('centang', 16) + ' Kunci benar (anon public).';
+      elCek.style.color = 'var(--tinta)';
     } else if (peran === 'service_role') {
-      elCek.textContent = '✘ Ini kunci service_role — jangan dipakai. Ambil yang anon public.';
+      elCek.innerHTML = ikon('silang', 16) + ' Ini kunci service_role — jangan dipakai. Ambil yang anon public.';
       elCek.style.color = 'var(--merah)';
     } else {
       elCek.textContent = 'Belum terbaca sebagai kunci Supabase. Pastikan tersalin utuh.';

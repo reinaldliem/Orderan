@@ -4,14 +4,71 @@
 import { CONFIG } from './config.js';
 
 const KUNCI_SESI = 'order-sesi-v1';
+
+/**
+ * Berapa lama satu sesi berlaku, dihitung sejak MASUK — bukan sejak
+ * pemakaian terakhir. Lewat batas ini token tidak diperpanjang lagi dan
+ * pengguna wajib memasukkan username + PIN lagi.
+ *
+ * Mau ubah? Ganti angka di baris ini saja; sisanya ikut sendiri.
+ */
+export const SESI_BERLAKU_JAM = 12;
+const SESI_BERLAKU_MS = SESI_BERLAKU_JAM * 60 * 60 * 1000;
+
 let sesi = null;
 let profil = null;
+
+/** true = sesi putus karena habis waktunya, bukan karena tombol Keluar. */
+let habisSendiri = false;
 
 try {
   sesi = JSON.parse(localStorage.getItem(KUNCI_SESI) || 'null');
 } catch {
   sesi = null;
 }
+
+/**
+ * Sesi tanpa penanda `mulai` berasal dari versi sebelum fitur ini ada.
+ * Sengaja dianggap habis: sekali saja semua orang diminta masuk lagi,
+ * setelah itu setiap sesi punya titik mulai yang jelas.
+ */
+function lewatBatas(s) {
+  return !s || typeof s.mulai !== 'number' || Date.now() - s.mulai >= SESI_BERLAKU_MS;
+}
+
+/** Buang sesi yang sudah habis. Mengembalikan true kalau memang dibuang. */
+function buangKalauHabis() {
+  if (!sesi || !lewatBatas(sesi)) return false;
+  const token = sesi.access_token;
+  simpanSesi(null);
+  profil = null;
+  habisSendiri = true;
+  cabutDiServer(token);   // supaya refresh_token-nya tidak bisa dipakai lagi
+  return true;
+}
+
+/** Cabut token di server. Sengaja tidak ditunggu — sesi lokal sudah hilang. */
+function cabutDiServer(token) {
+  if (!token) return;
+  try {
+    fetch(CONFIG.URL + '/auth/v1/logout', {
+      method: 'POST',
+      headers: { apikey: CONFIG.KUNCI_PUBLIK, Authorization: 'Bearer ' + token },
+    }).catch(() => {});
+  } catch { /* tidak ada internet — biarkan, sesi lokal sudah dihapus */ }
+}
+
+/** Sesi terakhir putus karena habis waktunya? Dipakai layar masuk. */
+export function sesiHabis() {
+  return habisSendiri;
+}
+
+/** Dipanggil layar masuk setelah pemberitahuannya ditampilkan. */
+export function lupakanSesiHabis() {
+  habisSendiri = false;
+}
+
+buangKalauHabis();
 
 function simpanSesi(s) {
   sesi = s;
@@ -70,6 +127,9 @@ async function kirim(path, { method = 'GET', body, headers = {}, pakaiToken = tr
 /** Token yang masih hidup; diperpanjang otomatis kalau hampir mati. */
 async function tokenSegar() {
   if (!sesi) return null;
+  // Sesi yang sudah lewat batas TIDAK diperpanjang — inilah yang membuat
+  // pengguna benar-benar harus masuk lagi, bukan sekadar diberi pesan.
+  if (buangKalauHabis()) return null;
   if (sesi.kedaluwarsa - Date.now() > 60_000) return sesi.access_token;
   try {
     const d = await kirim('/auth/v1/token?grant_type=refresh_token', {
@@ -82,6 +142,7 @@ async function tokenSegar() {
       refresh_token: d.refresh_token,
       user_id: d.user?.id ?? sesi.user_id,
       kedaluwarsa: Date.now() + (d.expires_in ?? 3600) * 1000,
+      mulai: sesi.mulai,   // JANGAN direset: batas dihitung sejak masuk
     });
     return sesi.access_token;
   } catch {
@@ -109,8 +170,10 @@ export async function masuk(username, pin) {
     refresh_token: d.refresh_token,
     user_id: d.user?.id,
     kedaluwarsa: Date.now() + (d.expires_in ?? 3600) * 1000,
+    mulai: Date.now(),   // titik hitung batas sesi
   });
 
+  habisSendiri = false;
   profil = null;
   const pr = await profilSaya();
   if (!pr) {
@@ -128,17 +191,12 @@ export async function keluar() {
   const token = sesi?.access_token;
   simpanSesi(null);
   profil = null;
-  if (token) {
-    try {
-      await fetch(CONFIG.URL + '/auth/v1/logout', {
-        method: 'POST',
-        headers: { apikey: CONFIG.KUNCI_PUBLIK, Authorization: 'Bearer ' + token },
-      });
-    } catch { /* biarkan — sesi lokal sudah dihapus */ }
-  }
+  habisSendiri = false;   // keluar sendiri, bukan kehabisan waktu
+  cabutDiServer(token);
 }
 
 export function adaSesi() {
+  buangKalauHabis();
   return !!sesi;
 }
 

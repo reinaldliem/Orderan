@@ -2,16 +2,32 @@
 
 import * as db from '../db.js';
 import { DARI_LAYAR, hapusSambungan } from '../config.js';
+import { ikon } from '../ikon.js';
 import { pesan, tanya } from '../util.js';
 
 export async function gambar(app, { setelahMasuk }) {
   const ingat = localStorage.getItem('order-username') || '';
 
+  // Tanpa ini, pengguna yang tiba-tiba terlempar ke layar masuk akan mengira
+  // aplikasinya rusak atau PIN-nya berubah.
+  const habis = db.sesiHabis();
+  if (habis) db.lupakanSesiHabis();
+
   app.innerHTML = `
     <main class="masuk">
-      <div class="logo">📋</div>
+      <div class="logo">${ikon('nota', 38)}</div>
       <h1>Order Sales</h1>
       <p class="halo">Masuk dulu untuk mulai membuat order</p>
+
+      ${habis ? `
+      <div class="sesi-habis" role="status">
+        ${ikon('jam', 20)}
+        <div>
+          <b>Sesi Anda sudah berakhir.</b>
+          Demi keamanan, setiap sesi hanya berlaku ${db.SESI_BERLAKU_JAM} jam.
+          Masuk lagi untuk melanjutkan.
+        </div>
+      </div>` : ''}
 
       <form id="form-masuk" autocomplete="on" novalidate>
         <div class="baris">
