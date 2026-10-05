@@ -6,7 +6,9 @@ import { ikon } from '../ikon.js';
 import { pesan, tanya } from '../util.js';
 
 export async function gambar(app, { setelahMasuk }) {
-  const ingat = localStorage.getItem('order-username') || '';
+  // Username SELALU kosong (permintaan pemilik): tidak ada yang mengingat
+  // akun terakhir di HP/komputer bersama. Sisa ingatan versi lama dibuang.
+  try { localStorage.removeItem('order-username'); } catch { /* abaikan */ }
 
   // Tanpa ini, pengguna yang tiba-tiba terlempar ke layar masuk akan mengira
   // aplikasinya rusak atau PIN-nya berubah.
@@ -19,7 +21,16 @@ export async function gambar(app, { setelahMasuk }) {
       <h1>Order Sales</h1>
       <p class="halo">Masuk dulu untuk mulai membuat order</p>
 
-      ${habis ? `
+      ${habis === 'perangkat' ? `
+      <div class="sesi-habis" role="status">
+        ${ikon('peringatan', 20)}
+        <div>
+          <b>Akun ini masuk di perangkat lain.</b>
+          Satu akun hanya boleh aktif di 2 perangkat sekaligus, jadi perangkat
+          yang paling lama dikeluarkan. Kalau Anda tidak merasa masuk di
+          perangkat lain, beri tahu admin.
+        </div>
+      </div>` : habis ? `
       <div class="sesi-habis" role="status">
         ${ikon('jam', 20)}
         <div>
@@ -32,10 +43,9 @@ export async function gambar(app, { setelahMasuk }) {
       <form id="form-masuk" autocomplete="on" novalidate>
         <div class="baris">
           <label class="label" for="u">Username</label>
-          <input type="text" id="u" name="username" value="${ingat.replace(/"/g, '&quot;')}"
-                 placeholder="contoh: aan" autocapitalize="none"
-                 autocorrect="off" spellcheck="false" autocomplete="username"
-                 enterkeyhint="next" inputmode="text">
+          <input type="text" id="u" name="username" value=""
+                 autocapitalize="none" autocorrect="off" spellcheck="false"
+                 autocomplete="off" enterkeyhint="next" inputmode="text">
         </div>
 
         <div class="baris">
@@ -94,7 +104,6 @@ export async function gambar(app, { setelahMasuk }) {
     btn.textContent = 'Sedang masuk…';
     try {
       const pr = await db.masuk(un, pin);
-      localStorage.setItem('order-username', un);
       pesan('Selamat datang, ' + pr.nama, 'ok');
       await setelahMasuk(pr);
     } catch (err) {
@@ -115,5 +124,5 @@ export async function gambar(app, { setelahMasuk }) {
     location.reload();
   });
 
-  if (ingat) p.focus(); else u.focus();
+  u.focus();
 }

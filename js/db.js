@@ -18,8 +18,13 @@ const SESI_BERLAKU_MS = SESI_BERLAKU_JAM * 60 * 60 * 1000;
 let sesi = null;
 let profil = null;
 
-/** true = sesi putus karena habis waktunya, bukan karena tombol Keluar. */
-let habisSendiri = false;
+/**
+ * Kenapa sesi terakhir putus — bukan karena tombol Keluar:
+ *   'habis'    = lewat batas SESI_BERLAKU_JAM
+ *   'perangkat'= akun ini masuk di perangkat ke-3; perangkat ini yang paling
+ *                lama, jadi dikeluarkan server (maks 2 perangkat per akun)
+ */
+let alasanKeluar = null;
 
 try {
   sesi = JSON.parse(localStorage.getItem(KUNCI_SESI) || 'null');
@@ -42,30 +47,34 @@ function buangKalauHabis() {
   const token = sesi.access_token;
   simpanSesi(null);
   profil = null;
-  habisSendiri = true;
+  alasanKeluar = 'habis';
   cabutDiServer(token);   // supaya refresh_token-nya tidak bisa dipakai lagi
   return true;
 }
 
-/** Cabut token di server. Sengaja tidak ditunggu — sesi lokal sudah hilang. */
+/**
+ * Cabut token di server. Sengaja tidak ditunggu — sesi lokal sudah hilang.
+ * scope=local WAJIB: tanpa itu Supabase mengeluarkan SEMUA perangkat akun
+ * ini, padahal satu akun boleh aktif di 2 perangkat.
+ */
 function cabutDiServer(token) {
   if (!token) return;
   try {
-    fetch(CONFIG.URL + '/auth/v1/logout', {
+    fetch(CONFIG.URL + '/auth/v1/logout?scope=local', {
       method: 'POST',
       headers: { apikey: CONFIG.KUNCI_PUBLIK, Authorization: 'Bearer ' + token },
     }).catch(() => {});
   } catch { /* tidak ada internet — biarkan, sesi lokal sudah dihapus */ }
 }
 
-/** Sesi terakhir putus karena habis waktunya? Dipakai layar masuk. */
+/** Kenapa sesi terakhir putus: 'habis' | 'perangkat' | null. Dipakai layar masuk. */
 export function sesiHabis() {
-  return habisSendiri;
+  return alasanKeluar;
 }
 
 /** Dipanggil layar masuk setelah pemberitahuannya ditampilkan. */
 export function lupakanSesiHabis() {
-  habisSendiri = false;
+  alasanKeluar = null;
 }
 
 buangKalauHabis();
@@ -173,7 +182,7 @@ export async function masuk(username, pin) {
     mulai: Date.now(),   // titik hitung batas sesi
   });
 
-  habisSendiri = false;
+  alasanKeluar = null;
   profil = null;
   const pr = await profilSaya();
   if (!pr) {
@@ -191,8 +200,31 @@ export async function keluar() {
   const token = sesi?.access_token;
   simpanSesi(null);
   profil = null;
-  habisSendiri = false;   // keluar sendiri, bukan kehabisan waktu
+  alasanKeluar = null;    // keluar sendiri, bukan kehabisan waktu
   cabutDiServer(token);
+}
+
+/**
+ * Apakah sesi perangkat ini masih ada di server? Sesi bisa dihapus server
+ * kalau akun yang sama masuk di perangkat ke-3 (maks 2 per akun; yang paling
+ * lama keluar). Mengembalikan false HANYA kalau server menjawab "tidak ada" —
+ * tanpa internet dianggap masih ada, supaya sales di lapangan tidak terlempar.
+ */
+export async function cekPerangkat() {
+  if (!sesi) return false;
+  let ada;
+  try {
+    ada = await rpc('sesi_masih_ada');
+  } catch {
+    return !!sesi;   // gagal tersambung / token ditolak: diurus di tempat lain
+  }
+  if (ada === false) {
+    simpanSesi(null);   // sesinya sudah dihapus server, tidak perlu logout
+    profil = null;
+    alasanKeluar = 'perangkat';
+    return false;
+  }
+  return true;
 }
 
 export function adaSesi() {
@@ -209,17 +241,42 @@ export async function profilSaya() {
   return profil;
 }
 
+/** Supabase memberi paling banyak 1.000 baris per permintaan (bawaan). */
+const PER_HALAMAN = 1000;
+
 /**
  * SELECT sederhana. Contoh:
  *   pilih('barang', { select: 'id,nama', aktif: 'eq.true', order: 'nama.asc', limit: 500 })
+ *
+ * Diambil bertahap per 1.000 baris sampai `limit` (tanpa limit = semua).
+ * Tanpa ini, hasil di atas 1.000 baris TERPOTONG DIAM-DIAM oleh server.
+ * Karena itu `order` harus unik (tambahkan id sebagai pemutus seri), supaya
+ * tidak ada baris yang terlewat atau terulang di antara dua halaman.
  */
 export async function pilih(tabel, params = {}) {
   const q = new URLSearchParams();
+  let batas = Infinity;
   for (const [k, v] of Object.entries(params)) {
-    if (v !== undefined && v !== null && v !== '') q.append(k, v);
+    if (v === undefined || v === null || v === '') continue;
+    if (k === 'limit') batas = Number(v);
+    else if (k === 'offset') continue;   // diatur di bawah
+    else q.append(k, v);
   }
   if (!q.has('select')) q.set('select', '*');
-  return kirim(`/rest/v1/${tabel}?${q.toString()}`);
+  let mulaiDari = Number(params.offset) || 0;
+
+  const hasil = [];
+  while (hasil.length < batas) {
+    const ambil = Math.min(PER_HALAMAN, batas - hasil.length);
+    q.set('limit', String(ambil));
+    q.set('offset', String(mulaiDari));
+    const baris = await kirim(`/rest/v1/${tabel}?${q.toString()}`);
+    if (!Array.isArray(baris)) return baris;
+    for (const r of baris) hasil.push(r);
+    if (baris.length < ambil) break;
+    mulaiDari += baris.length;
+  }
+  return hasil;
 }
 
 /** Panggil fungsi RPC di database. */

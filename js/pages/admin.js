@@ -109,6 +109,7 @@ async function tabOrder(panel, ctx) {
   const elInfo = panel.querySelector('#info-segar');
   const elHasil = panel.querySelector('#hasil');
 
+  const BATAS_ORDER = 5000;  // per tarikan; lebih dari ini -> admin diminta mempersempit tanggal
   let pesanan = [];          // hasil tarikan terakhir
   let idBaru = new Set();    // order yang muncul sejak tarikan sebelumnya
   let idLama = null;         // id order pada tarikan sebelumnya (null = belum pernah)
@@ -132,7 +133,7 @@ async function tabOrder(panel, ctx) {
               'pesanan_catatan(teks,dibuat_pada)',
       and: `(tanggal.gte.${d1},tanggal.lte.${d2})`,
       order: 'tanggal.desc,id.desc',
-      limit: 2000,
+      limit: BATAS_ORDER,
     };
     if (sel.value) q.sales_id = 'eq.' + sel.value;
     return db.pilih('pesanan', q);
@@ -163,10 +164,13 @@ async function tabOrder(panel, ctx) {
       const jam = new Intl.DateTimeFormat('id-ID', {
         timeZone: 'Asia/Jakarta', hour: '2-digit', minute: '2-digit',
       }).format(new Date());
+      const penuh = pesanan.length >= BATAS_ORDER;
       elInfo.textContent = `Diperbarui ${jam}` + (bandingkan
         ? (idBaru.size ? ` · ${idBaru.size} order baru` : ' · tidak ada order baru')
+        : '') + (penuh
+        ? ` · hanya ${BATAS_ORDER.toLocaleString('id-ID')} order terbaru yang tampil, persempit tanggalnya`
         : '');
-      elInfo.classList.toggle('ada-baru', idBaru.size > 0);
+      elInfo.classList.toggle('ada-baru', idBaru.size > 0 || penuh);
       gambarTabel();
     } catch (e) {
       pesan(e.message || 'Gagal memuat order.', 'salah');
@@ -957,7 +961,7 @@ async function tabMaster(panel, ctx, o) {
   const cari = panel.querySelector('#cari');
 
   async function muat() {
-    data = await db.pilih(o.tabel, { select: o.select, order: 'nama.asc', limit: 5000 });
+    data = await db.pilih(o.tabel, { select: o.select, order: 'nama.asc,id.asc', limit: 5000 });
     gambarList();
   }
 

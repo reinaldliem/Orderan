@@ -46,14 +46,14 @@ async function ambilMaster() {
 
   const [toko, barang, punyaSaya] = await Promise.all([
     db.pilih('toko', {
-      select: 'id,kode,nama,kota,alamat', aktif: 'eq.true', order: 'nama.asc', limit: 5000,
+      select: 'id,kode,nama,kota,alamat', aktif: 'eq.true', order: 'nama.asc,id.asc', limit: 5000,
     }),
     db.pilih('barang', {
       select: 'id,kode,nama,satuan,harga_rekomendasi,berat_kg',
-      aktif: 'eq.true', order: 'nama.asc', limit: 5000,
+      aktif: 'eq.true', order: 'nama.asc,id.asc', limit: 5000,
     }),
     kode
-      ? db.pilih('toko_sales', { select: 'toko_id', kode_sales: 'eq.' + kode, limit: 5000 })
+      ? db.pilih('toko_sales', { select: 'toko_id', kode_sales: 'eq.' + kode, order: 'toko_id.asc', limit: 5000 })
       : Promise.resolve(null),
   ]);
 
@@ -197,16 +197,30 @@ async function gambarLogin() {
 //
 // Dicek tiap menit DAN setiap kali aplikasi kembali terlihat, karena di HP
 // timer sering dibekukan selama aplikasi ada di latar belakang.
+//
+// Sekalian ditanyakan ke server apakah sesi perangkat ini masih ada: satu
+// akun maksimal 2 perangkat, login ke-3 mengeluarkan perangkat paling lama.
 // ------------------------------------------------------------
-async function cekSesi() {
-  if (!status.profil) return;    // sudah di layar masuk
-  if (db.adaSesi()) return;      // masih berlaku
+let sedangCek = false;
 
-  hapusMasterLokal();
-  status.profil = null;
-  location.hash = '';
-  await gambarLogin();
-  pesan('Sesi Anda sudah berakhir. Silakan masuk lagi.', 'salah');
+async function cekSesi() {
+  if (!status.profil || sedangCek) return;    // sudah di layar masuk / sedang dicek
+  sedangCek = true;
+  try {
+    if (db.adaSesi() && await db.cekPerangkat()) return;   // masih berlaku
+    if (!status.profil) return;                            // sudah keluar lewat jalan lain
+
+    const alasan = db.sesiHabis();
+    hapusMasterLokal();
+    status.profil = null;
+    location.hash = '';
+    await gambarLogin();
+    pesan(alasan === 'perangkat'
+      ? 'Akun Anda dipakai masuk di perangkat lain, jadi perangkat ini dikeluarkan.'
+      : 'Sesi Anda sudah berakhir. Silakan masuk lagi.', 'salah');
+  } finally {
+    sedangCek = false;
+  }
 }
 
 function pantauSesi() {
@@ -262,6 +276,7 @@ async function mulai() {
   if (!location.hash) location.hash = '#/order';
   await gambarHalaman();
   segarkanMaster().catch(() => {});
+  cekSesi();   // langsung tanya server: jangan-jangan sudah dikeluarkan perangkat lain
 }
 
 window.addEventListener('hashchange', () => {
