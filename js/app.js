@@ -119,7 +119,8 @@ function gambarKerangka(kunci) {
         .join('')}
     </nav>`;
 
-  document.body.classList.remove('tanpa-bar');
+  // Lebar 1280px hanya untuk tab Order di Admin; admin.js memasangnya lagi.
+  document.body.classList.remove('tanpa-bar', 'lebar');
   document.getElementById('btn-keluar').addEventListener('click', keluarSekarang);
   return document.getElementById('isi');
 }
@@ -175,6 +176,7 @@ async function gambarHalaman() {
 // ------------------------------------------------------------
 async function gambarLogin() {
   document.body.classList.add('tanpa-bar');
+  document.body.classList.remove('lebar');
   const modul = await import('./pages/login.js');
   await modul.gambar(app, {
     setelahMasuk: async (pr) => {

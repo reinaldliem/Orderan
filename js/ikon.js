@@ -23,6 +23,8 @@ const GAMBAR = {
   tempel: '<path d="M8 4h8v3H8z"/><path d="M6 5.5H4v15h16v-15h-2"/><path d="M8 12h8"/><path d="M8 16h5"/>',
   cari: '<path d="M11 4.5a6.5 6.5 0 1 1 0 13 6.5 6.5 0 0 1 0-13z"/><path d="m16 16 4.5 4.5"/>',
   tambah: '<path d="M12 5v14"/><path d="M5 12h14"/>',
+  segarkan: '<path d="M19.5 11A7.5 7.5 0 0 0 6.2 6.6L4.5 8.5"/><path d="M4.5 4v4.5H9"/>' +
+            '<path d="M4.5 13a7.5 7.5 0 0 0 13.3 4.4l1.7-1.9"/><path d="M19.5 20v-4.5H15"/>',
   centang: '<path d="m4 12.5 5.5 5.5L20 7"/>',
   silang: '<path d="M5 5l14 14"/><path d="M19 5 5 19"/>',
   tanggal: '<path d="M4 6h16v15H4z"/><path d="M4 11h16"/><path d="M8.5 3v5"/><path d="M15.5 3v5"/>',

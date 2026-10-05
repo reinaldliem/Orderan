@@ -250,9 +250,14 @@ kostum, bukan sistem.
 
 Satu kolom, dikunci **560px** dan dipusatkan; di bawah itu aplikasi
 mengisi penuh lebar layar. Lebar ini dipilih dari pemakaian, bukan dari
-titik putus: aplikasinya tetap satu kolom di layar lebar karena
-admin pun memeriksa order dengan cara yang sama seperti sales
-membuatnya.
+titik putus.
+
+**Satu pengecualian: tab Order di Admin.** Di sana admin menerima order
+lalu memindahkannya ke program nota, dan butuh melihat banyak baris
+sekaligus. Hanya tab itu yang melebar sampai **1280px** (`body.lebar`,
+dipasang dan dilepas oleh admin.js / app.js). Tab Toko, Barang, Akun dan
+semua halaman sales tetap 560px. Di lebar ≥ 900px kepala aplikasi
+berhenti menempel, supaya kepala **tabel** yang menempel saat menggulir.
 
 Irama jaraknya lima langkah: **8px** untuk jarak ikon ke teks, **10px**
 untuk kelompok rapat (tombol berdampingan, antar baris barang), **12px**
@@ -263,10 +268,11 @@ margin kiri-kanan 14px, menyusut jadi 11px di bawah 375px.
 Jarak di atas judul selalu lebih besar daripada di bawahnya, sehingga
 judul menempel pada isinya, bukan mengambang di antara dua bagian.
 
-Satu titik putus saja: **374px**. Di bawahnya, huruf stensil menyusut
+Titik putus umum: **374px**. Di bawahnya, huruf stensil menyusut
 (44→38px pada layar masuk, 34→28px pada blok total), sel ringkasan
-dibiarkan membungkus, dan renggang PIN dikurangi. Tidak ada titik putus
-ke atas — tata letaknya memang tidak berubah.
+dibiarkan membungkus, dan renggang PIN dikurangi. Satu titik putus
+khusus **900px** untuk meja order Admin: di bawahnya tabel berubah jadi
+kartu (lihat Components → Meja Order).
 
 ### Named Rules
 
@@ -370,6 +376,28 @@ Komponen penanda sistem ini. Ladang tinta penuh lebar, label kecil
 nilainya berubah, angkanya **mencetak ulang**: dari `blur(2px)` opacity
 .55 menjadi tajam dalam 160ms. Ia tidak pernah menggeser, tidak pernah
 menghitung naik, tidak pernah memantul.
+
+### Meja Order (Admin → Order)
+Tempat admin sales menerima order lalu memindahkannya ke program nota
+utama. **Satu baris per barang**: order dengan dua barang menjadi dua
+baris, tanggal, no order, dan toko diulang di setiap baris seperti di
+Excel. Website tidak membuat atau melacak nomor nota — hanya nomor order.
+- **≥ 900px — tabel:** kolom Tanggal · No Order · Toko · Barang · Jumlah ·
+  Harga · Jumlah Harga. Kepala tabel blok terbalik (ladang tinta) yang
+  menempel saat menggulir. Angka rata kanan `tabular-nums`. Satu order
+  dipisah dari order berikutnya oleh **garis tinta 2px**; barang dalam
+  order yang sama hanya garis tipis.
+- **< 900px — kartu:** satu `<table>` yang sama diubah CSS jadi kartu per
+  barang (toko + jumlah harga di atas, lalu barang, "12 PCS × Rp 10.000",
+  tanggal · no order). Kartu pertama tiap order bergaris tinta, kartu
+  berikutnya bergaris tipis.
+- **Segarkan:** tombol utama. Order yang belum ada di tarikan sebelumnya
+  diberi cap **BARU** (blok tinta terbalik) dan ladang `blok` yang lebih
+  terang. Mengganti saringan tanggal/sales tidak menandai apa pun. Baris
+  keterangan di bawah tombol: "Diperbarui 18.00 · 1 order baru".
+- **Catatan tambahan dari sales** ditandai ikon `catatan` berwarna kuning
+  tanah di sebelah nama toko — tanda bahwa order itu mungkin perlu dibetulkan.
+- **Ketuk baris** membuka lembar rincian order (catatan, Ubah, Hapus).
 
 ### Cap Tersimpan (signature)
 Kotak bergaris tinta 3px berisi ikon centang dan kata TERSIMPAN,

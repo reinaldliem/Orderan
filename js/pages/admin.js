@@ -37,6 +37,8 @@ function pilihTab(panel, isi, ctx) {
   isi.querySelectorAll('#tab button').forEach((b) => {
     b.classList.toggle('aktif', b.dataset.t === tabAktif);
   });
+  // Tabel order butuh layar lebar; tab lain tetap satu kolom 560px.
+  document.body.classList.toggle('lebar', tabAktif === 'order');
 
   // Tiap tab dapat wadahnya SENDIRI. Kalau pengguna ganti tab sebelum
   // yang lama selesai memuat, tulisan yang terlambat masuk ke wadah lama
@@ -61,28 +63,25 @@ async function tabOrder(panel, ctx) {
 
   panel.innerHTML = `
     <div class="kartu">
-      <div class="judul-bagian">Rentang tanggal</div>
-      <div class="dua">
-        <div><label class="label" for="d1">Dari</label><input type="date" id="d1" value="${awal}"></div>
-        <div><label class="label" for="d2">Sampai</label><input type="date" id="d2" value="${akhir}"></div>
+      <div class="saring-order">
+        <div><label class="label" for="d1">Dari</label>
+          <input type="date" id="d1" value="${awal}"></div>
+        <div><label class="label" for="d2">Sampai</label>
+          <input type="date" id="d2" value="${akhir}"></div>
+        <div><label class="label" for="f-sales">Sales</label>
+          <select id="f-sales"><option value="">Semua sales</option></select></div>
+        <div><label class="label" for="f-cari">Cari</label>
+          <input type="text" id="f-cari" placeholder="Toko, barang, no order…"
+                 autocomplete="off" enterkeyhint="search"></div>
       </div>
-      <div class="baris" style="margin-top:12px">
-        <label class="label" for="f-sales">Sales</label>
-        <select id="f-sales"><option value="">Semua sales</option></select>
+      <div class="tombol-baris aksi-order">
+        <button type="button" class="btn" id="btn-segarkan">${ikon('segarkan', 19)}Segarkan</button>
+        <button type="button" class="btn abu kecil" id="btn-excel">${ikon('unduh', 17)}Excel</button>
+        <button type="button" class="btn abu kecil" id="btn-sheet">${ikon('unduh', 17)}Google Sheet</button>
       </div>
-      <div class="tombol-baris">
-        <button type="button" class="btn" id="btn-tampil">Tampilkan</button>
-        <button type="button" class="btn hijau" id="btn-excel">${ikon('unduh', 18)}Excel</button>
-      </div>
-      <button type="button" class="btn abu kecil" id="btn-sheet"
-              style="width:100%;margin-top:8px">${ikon('unduh', 18)}Google Sheet</button>
-      <div class="bantuan">
-        <b>Excel</b>: pemisah titik-koma, langsung rapi di Excel Indonesia.<br>
-        <b>Google Sheet</b>: pemisah koma — di Google Sheets pilih
-        <b>File → Import → Replace/Insert</b>, kolomnya terpisah sendiri.
-      </div>
+      <div class="info-segar" id="info-segar" aria-live="polite"></div>
     </div>
-    <div class="ringkas" id="ringkas"></div>
+    <div class="ringkas tiga" id="ringkas"></div>
     <div id="hasil"></div>`;
 
   const salesList = await db.pilih('profil', { select: 'id,nama,username,peran', order: 'nama.asc' });
@@ -94,13 +93,23 @@ async function tabOrder(panel, ctx) {
       .map((p) => `<option value="${esc(p.id)}">${esc(p.nama)}</option>`)
       .join('')
   );
-
   const namaSales = Object.fromEntries(salesList.map((p) => [p.id, p.nama]));
 
+  const inD1 = panel.querySelector('#d1');
+  const inD2 = panel.querySelector('#d2');
+  const inCari = panel.querySelector('#f-cari');
+  const btnSegarkan = panel.querySelector('#btn-segarkan');
+  const elInfo = panel.querySelector('#info-segar');
+  const elHasil = panel.querySelector('#hasil');
+
+  let pesanan = [];          // hasil tarikan terakhir
+  let idBaru = new Set();    // order yang muncul sejak tarikan sebelumnya
+  let idLama = null;         // id order pada tarikan sebelumnya (null = belum pernah)
+  let kunciLama = '';        // saringan pada tarikan sebelumnya
+
   async function tarik() {
-    const d1 = panel.querySelector('#d1').value || awal;
-    const d2 = panel.querySelector('#d2').value || akhir;
-    const sid = sel.value;
+    const d1 = inD1.value || awal;
+    const d2 = inD2.value || akhir;
     // dua syarat pada kolom yang sama -> pakai penyaring "and"
     const q = {
       select: 'id,no_pesanan,tanggal,sales_id,toko_id,toko_nama,catatan,total,' +
@@ -110,92 +119,200 @@ async function tabOrder(panel, ctx) {
       order: 'tanggal.desc,id.desc',
       limit: 2000,
     };
-    if (sid) q.sales_id = 'eq.' + sid;
+    if (sel.value) q.sales_id = 'eq.' + sel.value;
     return db.pilih('pesanan', q);
   }
 
-  async function tampilkan() {
-    const hasil = panel.querySelector('#hasil');
-    hasil.innerHTML = `<div class="memuat"><div class="putar"></div>Memuat…</div>`;
-    const baris = await tarik();
-    terakhir = baris;
+  /**
+   * Tarik ulang dengan saringan yang sama. Order yang belum ada pada tarikan
+   * sebelumnya ditandai BARU — itulah order yang masuk sejak admin terakhir
+   * melihat. Kalau saringannya diganti, tidak ada yang ditandai: bagi saringan
+   * baru semuanya "baru", jadi tanda itu tidak berarti apa-apa.
+   */
+  async function segarkan() {
+    const kunci = [inD1.value, inD2.value, sel.value].join('|');
+    const asli = btnSegarkan.innerHTML;
+    btnSegarkan.disabled = true;
+    btnSegarkan.innerHTML = `${ikon('segarkan', 19)}Memuat…`;
+    try {
+      pesanan = await tarik();
+      const sekarang = new Set(pesanan.map((p) => p.id));
+      const bandingkan = idLama !== null && kunci === kunciLama;
+      idBaru = bandingkan
+        ? new Set([...sekarang].filter((id) => !idLama.has(id)))
+        : new Set();
+      idLama = sekarang;
+      kunciLama = kunci;
 
-    panel.querySelector('#ringkas').innerHTML = `
-      <div class="sel"><div class="lbl">JUMLAH ORDER</div><div class="nilai">${baris.length}</div></div>
-      <div class="sel"><div class="lbl">TOTAL NILAI</div><div class="nilai">${esc(
-        rupiah(baris.reduce((s, p) => s + Number(p.total || 0), 0))
-      )}</div></div>`;
-
-    if (!baris.length) {
-      hasil.innerHTML = `<div class="kosong-pesan"><span class="ikon">${ikon('kosong', 40)}</span>Tidak ada order pada rentang ini.</div>`;
-      return;
+      const jam = new Intl.DateTimeFormat('id-ID', {
+        timeZone: 'Asia/Jakarta', hour: '2-digit', minute: '2-digit',
+      }).format(new Date());
+      elInfo.textContent = `Diperbarui ${jam}` + (bandingkan
+        ? (idBaru.size ? ` · ${idBaru.size} order baru` : ' · tidak ada order baru')
+        : '');
+      elInfo.classList.toggle('ada-baru', idBaru.size > 0);
+      gambarTabel();
+    } catch (e) {
+      pesan(e.message || 'Gagal memuat order.', 'salah');
+    } finally {
+      btnSegarkan.disabled = false;
+      btnSegarkan.innerHTML = asli;
     }
-
-    hasil.innerHTML = baris
-      .map((p) => {
-        const item = (p.pesanan_item || []).slice().sort((a, b) => a.urut - b.urut);
-        return `
-        <div class="riwayat">
-          <button type="button" class="riwayat-kepala" data-id="${esc(p.id)}">
-            <span class="kiri">
-              <span class="toko">${esc(p.toko_nama)}</span>
-              <span class="meta">${esc(tanggalPendek(p.tanggal))} · ${esc(p.no_pesanan)} · ${esc(namaSales[p.sales_id] || '—')}</span>
-            </span>
-            <span class="uang">${esc(rupiah(p.total))}</span>
-          </button>
-          <div class="riwayat-isi" id="ai-${esc(p.id)}" hidden>
-            <table>${item
-              .map(
-                (i) => `<tr><td>${esc(i.barang_nama)}
-                  <div class="ket">${esc(rincianItem(i))}</div></td>
-                  <td>${esc(rupiah(i.subtotal))}</td></tr>`
-              )
-              .join('')}</table>
-            ${p.catatan ? `<div class="ket catatan-cap">${ikon('catatan', 14)}${esc(p.catatan)}</div>` : ''}
-            ${(p.pesanan_catatan || []).length ? `<div class="catatan-daftar">${
-              (p.pesanan_catatan || []).map((c) => `<div class="catatan-baris">${esc(c.teks)}
-                <span class="siapa">Catatan tambahan dari sales</span></div>`).join('')
-            }</div>` : ''}
-            <div class="tombol-baris" style="margin-top:14px">
-              <button type="button" class="btn kecil" style="width:100%"
-                      data-ubah="${esc(p.id)}">Ubah order</button>
-              <button type="button" class="btn abu kecil" style="width:100%;color:var(--merah)"
-                      data-hapus="${esc(p.id)}">Hapus</button>
-            </div>
-          </div>
-        </div>`;
-      })
-      .join('');
   }
 
-  let terakhir = [];
+  /** Satu baris per BARANG — order dengan 2 barang menjadi 2 baris. */
+  function gambarTabel() {
+    const q = inCari.value.trim().toLowerCase();
+    const baris = [];
+    let nOrder = 0;
+    let total = 0;
 
-  panel.querySelector('#hasil').addEventListener('click', async (e) => {
-    const hapus = e.target.closest('[data-hapus]');
-    if (hapus) {
-      if (!(await tanya('Hapus order?', 'Order dan semua barangnya akan hilang permanen.', 'Ya, hapus'))) return;
+    for (const p of pesanan) {
+      const item = (p.pesanan_item || []).slice().sort((a, b) => a.urut - b.urut);
+      // Cocok di toko / no order -> semua barangnya ikut.
+      // Cocok di nama barang saja -> hanya barang itu.
+      const cocokOrder = !q ||
+        String(p.toko_nama).toLowerCase().includes(q) ||
+        String(p.no_pesanan).toLowerCase().includes(q);
+      const terpilih = cocokOrder
+        ? item
+        : item.filter((i) => String(i.barang_nama).toLowerCase().includes(q));
+      if (!terpilih.length) continue;
+      nOrder += 1;
+      terpilih.forEach((i, k) => {
+        baris.push({ p, i, awalOrder: k === 0 });
+        total += Number(i.subtotal || 0);
+      });
+    }
+
+    panel.querySelector('#ringkas').innerHTML = `
+      <div class="sel"><div class="lbl">Order</div><div class="nilai">${nOrder}</div></div>
+      <div class="sel"><div class="lbl">Baris barang</div><div class="nilai">${baris.length}</div></div>
+      <div class="sel"><div class="lbl">Total nilai</div><div class="nilai">${esc(rupiah(total))}</div></div>`;
+
+    if (!pesanan.length) {
+      elHasil.innerHTML = `<div class="kosong-pesan"><span class="ikon">${ikon('kosong', 40)}</span>Belum ada order pada rentang ini.</div>`;
+      return;
+    }
+    if (!baris.length) {
+      elHasil.innerHTML = `<div class="kosong-pesan"><span class="ikon">${ikon('cari', 40)}</span>Tidak ada yang cocok dengan “${esc(inCari.value.trim())}”.</div>`;
+      return;
+    }
+
+    elHasil.innerHTML = `
+      <table class="tabel-order">
+        <thead><tr>
+          <th scope="col">Tanggal</th>
+          <th scope="col">No Order</th>
+          <th scope="col">Toko</th>
+          <th scope="col">Barang</th>
+          <th scope="col" class="ang">Jumlah</th>
+          <th scope="col" class="ang">Harga</th>
+          <th scope="col" class="ang">Jumlah Harga</th>
+        </tr></thead>
+        <tbody>${baris.map(barisTabel).join('')}</tbody>
+      </table>`;
+  }
+
+  function barisTabel({ p, i, awalOrder }) {
+    const baru = idBaru.has(p.id);
+    const adaCatatan = (p.pesanan_catatan || []).length > 0;
+    const tgl = tanggalPendek(p.tanggal);
+    const jumlah = `${angka(i.qty)} ${i.satuan}`;
+    const kelas = [awalOrder && 'awal-order', baru && 'baru'].filter(Boolean).join(' ');
+    return `
+      <tr class="${kelas}" data-pesanan="${esc(p.id)}" tabindex="0">
+        <td class="k-tgl">${esc(tgl)}</td>
+        <td class="k-no"><span class="kode">${esc(p.no_pesanan)}</span>${
+          baru && awalOrder ? '<span class="tanda baru">Baru</span>' : ''}</td>
+        <td class="k-toko">${esc(p.toko_nama)}${
+          adaCatatan ? `<span class="tanda-catatan" title="Ada catatan tambahan dari sales">${ikon('catatan', 15)}</span>` : ''}</td>
+        <td class="k-barang">
+          <span class="nm">${esc(i.barang_nama)}</span>
+          <span class="hp-saja ket">${esc(jumlah)} × ${esc(rupiah(i.harga))}</span>
+          <span class="hp-saja ket">${esc(tgl)} · <span class="kode">${esc(p.no_pesanan)}</span>${
+            baru ? ' <span class="tanda baru">Baru</span>' : ''}</span>
+        </td>
+        <td class="k-qty ang">${esc(jumlah)}</td>
+        <td class="k-harga ang">${esc(rupiah(i.harga))}${
+          i.harga_per_kg ? `<span class="ket">${esc(rupiah(i.harga_per_kg))}/kg</span>` : ''}</td>
+        <td class="k-sub ang">${esc(rupiah(i.subtotal))}</td>
+      </tr>`;
+  }
+
+  /** Order lengkap: rincian, catatan, lalu Ubah / Hapus. */
+  function bukaDetail(p) {
+    const item = (p.pesanan_item || []).slice().sort((a, b) => a.urut - b.urut);
+    const catatan = p.pesanan_catatan || [];
+    const tirai = lembar(`Order ${p.no_pesanan}`, `
+      <div class="detail-kepala">
+        <div class="toko">${esc(p.toko_nama)}</div>
+        <div class="bantuan" style="margin:4px 0 0">
+          ${esc(tanggalPendek(p.tanggal))} · ${esc(namaSales[p.sales_id] || '—')}</div>
+      </div>
+      <div class="riwayat-isi detail-isi">
+        <table>${item.map((i) => `<tr><td>${esc(i.barang_nama)}
+            <div class="ket">${esc(rincianItem(i))}</div></td>
+            <td>${esc(rupiah(i.subtotal))}</td></tr>`).join('')}</table>
+        ${p.catatan ? `<div class="ket catatan-cap">${ikon('catatan', 14)}${esc(p.catatan)}</div>` : ''}
+        ${catatan.length ? `<div class="catatan-daftar">${catatan.map((c) => `
+          <div class="catatan-baris">${esc(c.teks)}
+            <span class="siapa">Catatan tambahan dari sales</span></div>`).join('')}</div>` : ''}
+      </div>
+      <div class="total-kotak">
+        <span class="lbl">Total order</span>
+        <span class="nilai">${esc(rupiah(p.total))}</span>
+      </div>
+      <div class="tombol-baris">
+        <button type="button" class="btn kecil" data-aksi="ubah" style="width:100%">Ubah order</button>
+        <button type="button" class="btn abu kecil" data-aksi="hapus"
+                style="width:100%;color:var(--merah)">Hapus</button>
+      </div>`);
+
+    tirai.addEventListener('click', async (e) => {
+      const b = e.target.closest('[data-aksi]');
+      if (!b) return;
+      if (b.dataset.aksi === 'ubah') {
+        tirai.remove();
+        bukaUbahOrder(p, ctx, segarkan);
+        return;
+      }
+      if (!(await tanya('Hapus order?',
+        `${p.no_pesanan} · ${p.toko_nama} — order dan semua barangnya hilang permanen.`,
+        'Ya, hapus'))) return;
       try {
-        await db.rpc('hapus_pesanan', { p_id: Number(hapus.dataset.hapus) });
+        await db.rpc('hapus_pesanan', { p_id: Number(p.id) });
         pesan('Order dihapus.', 'ok');
-        tampilkan();
-      } catch (err) { pesan(err.message, 'salah'); }
-      return;
-    }
+        tirai.remove();
+        segarkan();
+      } catch (err) {
+        pesan(err.message, 'salah');
+      }
+    });
+  }
 
-    const ubah = e.target.closest('[data-ubah]');
-    if (ubah) {
-      const p = terakhir.find((x) => String(x.id) === ubah.dataset.ubah);
-      if (p) bukaUbahOrder(p, ctx, tampilkan);
-      return;
-    }
+  function bukaBaris(tr) {
+    const p = pesanan.find((x) => String(x.id) === tr.dataset.pesanan);
+    if (p) bukaDetail(p);
+  }
 
-    const kepala = e.target.closest('.riwayat-kepala');
-    if (!kepala) return;
-    const box = panel.querySelector('#ai-' + CSS.escape(kepala.dataset.id));
-    if (box) box.hidden = !box.hidden;
+  elHasil.addEventListener('click', (e) => {
+    const tr = e.target.closest('tr[data-pesanan]');
+    if (tr) bukaBaris(tr);
+  });
+  elHasil.addEventListener('keydown', (e) => {
+    if (e.key !== 'Enter' && e.key !== ' ') return;
+    const tr = e.target.closest('tr[data-pesanan]');
+    if (!tr) return;
+    e.preventDefault();
+    bukaBaris(tr);
   });
 
-  panel.querySelector('#btn-tampil').addEventListener('click', () => tampilkan().catch((e) => pesan(e.message, 'salah')));
+  btnSegarkan.addEventListener('click', () => segarkan());
+  inD1.addEventListener('change', () => segarkan());
+  inD2.addEventListener('change', () => segarkan());
+  sel.addEventListener('change', () => segarkan());
+  inCari.addEventListener('input', () => gambarTabel());
 
   /**
    * Satu fungsi untuk dua tujuan.
@@ -205,12 +322,12 @@ async function tabOrder(panel, ctx) {
    * jatuh ke satu kolom di sana.
    */
   async function ekspor(tujuan, tombol) {
-    const teksAsli = tombol.textContent;
+    const asli = tombol.innerHTML;   // innerHTML, bukan textContent: tombolnya berikon
     tombol.disabled = true;
     tombol.textContent = 'Menyiapkan…';
     try {
-      const d1 = panel.querySelector('#d1').value || awal;
-      const d2 = panel.querySelector('#d2').value || akhir;
+      const d1 = inD1.value || awal;
+      const d2 = inD2.value || akhir;
       const q = {
         select: 'tanggal,no_pesanan,sales,toko,barang,satuan,jumlah,harga,' +
                 'harga_per_kg,total_kg,subtotal,catatan',
@@ -254,7 +371,7 @@ async function tabOrder(panel, ctx) {
       pesan(err.message || 'Gagal mengunduh.', 'salah');
     } finally {
       tombol.disabled = false;
-      tombol.textContent = teksAsli;
+      tombol.innerHTML = asli;
     }
   }
 
@@ -263,7 +380,7 @@ async function tabOrder(panel, ctx) {
   panel.querySelector('#btn-sheet').addEventListener('click',
     (e) => ekspor('sheet', e.currentTarget));
 
-  await tampilkan();
+  await segarkan();
 }
 
 /** Admin mengubah order. Hanya admin yang boleh. */

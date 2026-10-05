@@ -651,6 +651,131 @@ input[type=date]::-webkit-calendar-picker-indicator {
   overflow-wrap: anywhere; letter-spacing: 0; line-height: 1;
 }
 
+/* ============================================================
+   MEJA KERJA ORDER (Admin → Order)
+   Tempat admin menerima order lalu memindahkannya ke program nota.
+   Satu baris per BARANG. Satu DOM <table>: di layar lebar tampil sebagai
+   tabel sungguhan, di bawah 900px tiap baris berubah jadi kartu — sesuai
+   aturan CLAUDE.md "tabel → kartu", tanpa gulir mendatar.
+   ============================================================ */
+
+/* Hanya tab ini yang melebar (body.lebar dipasang admin.js). */
+body.lebar #app, body.lebar .bar { max-width: 1280px; }
+
+.saring-order {
+  display: grid; grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px; margin-bottom: 12px;
+}
+.saring-order > div:nth-child(n+3) { grid-column: 1 / -1; }   /* sales & cari selebar kartu */
+
+.aksi-order { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.aksi-order #btn-segarkan { grid-column: 1 / -1; }
+/* dua tombol unduh berdampingan di HP: dirapatkan supaya "Google Sheet" tidak terlipat */
+.aksi-order .btn.kecil { letter-spacing: .04em; padding-inline: 10px; white-space: nowrap; }
+
+.info-segar {
+  margin-top: 10px; min-height: 1.4em;
+  font-size: 11px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase;
+  color: var(--tinta-2);
+}
+.info-segar.ada-baru { color: var(--tinta); }
+
+.ringkas.tiga { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.ringkas.tiga .sel:last-child { grid-column: 1 / -1; }
+
+.tanda.baru {
+  background: var(--tinta); border-color: var(--tinta); color: var(--blok);
+  margin-left: 8px; vertical-align: 1px;
+}
+.tanda-catatan { display: inline-flex; vertical-align: -2px; margin-left: 6px; color: var(--tunggu); }
+
+.tabel-order { width: 100%; border-spacing: 0; }
+.tabel-order tbody tr { cursor: pointer; }
+.tabel-order tbody tr:focus-visible { outline: 3px solid var(--tinta); outline-offset: -3px; }
+.tabel-order .ang { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.tabel-order .k-harga .ket { display: block; font-size: 11.5px; color: var(--tinta-2); font-weight: 500; }
+
+/* --- layar lebar: tabel sungguhan --- */
+@media (min-width: 900px) {
+  /* Kepala aplikasi tidak menempel di sini, supaya kepala TABEL yang menempel. */
+  body.lebar .atas { position: static; }
+
+  .saring-order { grid-template-columns: 1fr 1fr 1fr 1.6fr; }
+  .saring-order > div:nth-child(n+3) { grid-column: auto; }
+  .aksi-order { grid-template-columns: 1.4fr 1fr 1fr; }
+  .aksi-order #btn-segarkan { grid-column: auto; }
+  .ringkas.tiga { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .ringkas.tiga .sel:last-child { grid-column: auto; }
+
+  .tabel-order {
+    border-collapse: separate;   /* supaya garis kepala ikut menempel */
+    background: var(--kraft-muda); border: 2px solid var(--tinta);
+    font-size: 14px;
+  }
+  .tabel-order th {
+    position: sticky; top: 0; z-index: 2;
+    background: var(--tinta); color: var(--blok);
+    text-align: left; white-space: nowrap;
+    font-size: 10.5px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase;
+    padding: 10px 12px;
+  }
+  .tabel-order td { padding: 9px 12px; border-bottom: 1px solid var(--garis); vertical-align: top; }
+  /* garis tinta tebal memisahkan satu order dari order berikutnya */
+  .tabel-order tr.awal-order td { border-top: 2px solid var(--tinta); }
+  .tabel-order tbody tr:first-child td { border-top: 0; }
+  .tabel-order tr.baru td { background: var(--blok); }
+  .tabel-order .k-tgl { white-space: nowrap; color: var(--tinta-2); font-weight: 600; }
+  .tabel-order .k-no { white-space: nowrap; }
+  .tabel-order .k-toko { font-weight: 700; }
+  .tabel-order .k-sub { font-weight: 700; }
+  .tabel-order .hp-saja { display: none; }
+}
+@media (min-width: 900px) and (hover: hover) and (pointer: fine) {
+  .tabel-order tbody tr:hover td { background: var(--kraft-tua); }
+}
+
+/* --- HP & tablet tegak: tiap baris barang jadi kartu --- */
+@media (max-width: 899px) {
+  .tabel-order, .tabel-order tbody { display: block; }
+  .tabel-order thead { display: none; }
+  .tabel-order tr {
+    display: grid; grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas: "toko sub" "barang barang";
+    gap: 3px 12px;
+    background: var(--kraft-muda); border: 2px solid var(--garis-kuat);
+    padding: 11px 13px; margin-bottom: 8px;
+    transition: transform .12s var(--tekan);
+  }
+  .tabel-order tr:active { transform: scale(.985); }
+  /* kartu pertama tiap order bergaris tinta & diberi jarak: satu order, satu kelompok */
+  .tabel-order tr.awal-order { border-color: var(--tinta); margin-top: 16px; }
+  .tabel-order tr:first-child { margin-top: 0; }
+  .tabel-order tr.baru { background: var(--blok); }
+  .tabel-order td { display: block; padding: 0; }
+  .tabel-order .k-tgl, .tabel-order .k-no,
+  .tabel-order .k-qty, .tabel-order .k-harga { display: none; }
+  .tabel-order .k-toko {
+    grid-area: toko; min-width: 0; overflow-wrap: anywhere;
+    font-family: var(--stensil); font-size: 19px; line-height: 1.1;
+    text-transform: uppercase; letter-spacing: .01em;
+  }
+  .tabel-order .k-sub {
+    grid-area: sub;
+    font-family: var(--stensil); font-size: 19px; line-height: 1.1;
+  }
+  .tabel-order .k-barang { grid-area: barang; min-width: 0; }
+  .tabel-order .k-barang .nm { display: block; font-weight: 700; overflow-wrap: anywhere; }
+  .tabel-order .hp-saja { display: block; font-size: 12.5px; color: var(--tinta-2); margin-top: 2px; }
+  .tabel-order .hp-saja .tanda.baru { margin-left: 4px; }
+}
+
+/* Lembar rincian order (ketuk satu baris) */
+.detail-kepala .toko {
+  font-family: var(--stensil); font-size: 19px; line-height: 1.05;
+  text-transform: uppercase; letter-spacing: .01em; overflow-wrap: anywhere;
+}
+.detail-isi { border: 2px solid var(--tinta); margin: 12px 0; }
+
 /* ---------- Gerak dikurangi ---------- */
 @media (prefers-reduced-motion: reduce) {
   .putar { animation-duration: 2s; }
@@ -661,7 +786,8 @@ input[type=date]::-webkit-calendar-picker-indicator {
   }
   /* skala ditiadakan, opacity dibiarkan: masih memberi umpan balik */
   .btn:active, .pilih:active, .bar a:active, .saring button:active,
-  .btn-atas:active, .lembar-atas .tutup:active, .item-atas .buang:active {
+  .btn-atas:active, .lembar-atas .tutup:active, .item-atas .buang:active,
+  .tabel-order tr:active {
     transform: none;
   }
 }
