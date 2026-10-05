@@ -256,8 +256,7 @@ titik putus.
 lalu memindahkannya ke program nota, dan butuh melihat banyak baris
 sekaligus. Hanya tab itu yang melebar sampai **1280px** (`body.lebar`,
 dipasang dan dilepas oleh admin.js / app.js). Tab Toko, Barang, Akun dan
-semua halaman sales tetap 560px. Di lebar ≥ 900px kepala aplikasi
-berhenti menempel, supaya kepala **tabel** yang menempel saat menggulir.
+semua halaman sales tetap 560px.
 
 Irama jaraknya lima langkah: **8px** untuk jarak ikon ke teks, **10px**
 untuk kelompok rapat (tombol berdampingan, antar baris barang), **12px**
@@ -270,9 +269,9 @@ judul menempel pada isinya, bukan mengambang di antara dua bagian.
 
 Titik putus umum: **374px**. Di bawahnya, huruf stensil menyusut
 (44→38px pada layar masuk, 34→28px pada blok total), sel ringkasan
-dibiarkan membungkus, dan renggang PIN dikurangi. Satu titik putus
-khusus **900px** untuk meja order Admin: di bawahnya tabel berubah jadi
-kartu (lihat Components → Meja Order).
+dibiarkan membungkus, dan renggang PIN dikurangi. Meja order Admin
+adalah lembar kerja yang menggulir di dalam bingkainya sendiri, di semua
+lebar layar (lihat Components → Meja Order).
 
 ### Named Rules
 
@@ -379,25 +378,31 @@ menghitung naik, tidak pernah memantul.
 
 ### Meja Order (Admin → Order)
 Tempat admin sales menerima order lalu memindahkannya ke program nota
-utama. **Satu baris per barang**: order dengan dua barang menjadi dua
-baris, tanggal, no order, dan toko diulang di setiap baris seperti di
-Excel. Website tidak membuat atau melacak nomor nota — hanya nomor order.
-- **≥ 900px — tabel:** kolom Tanggal · No Order · Toko · Barang · Jumlah ·
-  Harga · Jumlah Harga. Kepala tabel blok terbalik (ladang tinta) yang
-  menempel saat menggulir. Angka rata kanan `tabular-nums`. Satu order
-  dipisah dari order berikutnya oleh **garis tinta 2px**; barang dalam
-  order yang sama hanya garis tipis.
-- **< 900px — kartu:** satu `<table>` yang sama diubah CSS jadi kartu per
-  barang (toko + jumlah harga di atas, lalu barang, "12 PCS × Rp 10.000",
-  tanggal · no order). Kartu pertama tiap order bergaris tinta, kartu
-  berikutnya bergaris tipis.
-- **Segarkan:** tombol utama. Order yang belum ada di tarikan sebelumnya
-  diberi cap **BARU** (blok tinta terbalik) dan ladang `blok` yang lebih
-  terang. Mengganti saringan tanggal/sales tidak menandai apa pun. Baris
-  keterangan di bawah tombol: "Diperbarui 18.00 · 1 order baru".
-- **Catatan tambahan dari sales** ditandai ikon `catatan` berwarna kuning
-  tanah di sebelah nama toko — tanda bahwa order itu mungkin perlu dibetulkan.
-- **Ketuk baris** membuka lembar rincian order (catatan, Ubah, Hapus).
+utama, disajikan sebagai **lembar kerja seperti Excel** — di desktop
+maupun HP. Website tidak membuat atau melacak nomor nota, hanya nomor order.
+- **Satu baris per barang.** Order dua barang = dua baris; tanggal, toko,
+  dan no order diulang di setiap baris. Urutan kolom mengikuti contoh
+  pemilik: # · Tanggal · Toko · Barang · Jumlah · Harga · Jumlah Harga ·
+  No Order. Tanggal `dd/mm/yyyy`, angka tanpa "Rp" (10.000), seperti Excel.
+- **Garis di setiap sel** (1px `garis`); satu order dipisah dari order
+  berikutnya oleh garis tinta 2px.
+- **Membeku:** kepala kolom (blok tinta terbalik) di atas, kolom nomor baris
+  (`kraft-tua`) di kiri, baris Total (blok tinta) di dasar bingkai.
+- **Bingkai menggulir sendiri, dua arah.** Halaman tidak pernah bergeser ke
+  samping; di HP lembar kerjanya yang digeser, seperti Google Sheets.
+  Ini pengecualian sadar dari aturan "tabel → kartu" — permintaan pemilik.
+- **Baris aktif:** klik sel → nomor barisnya menyala (`tinta-2`), seperti
+  kepala baris sel aktif di Excel. Teks sel tetap bisa diblok dan disalin.
+  Kursor `cell` di atas lembar.
+- **Order baru** sejak Segarkan terakhir: baris diblok `tunggu-muda`
+  (pemformatan bersyarat) dan nomor barisnya berganti **BARU** (blok tinta).
+  Mengganti saringan tidak menandai apa pun.
+- **No Order** bergaris bawah = pintu ke rincian order (catatan, Ubah,
+  Hapus); juga lewat dobel-klik baris. Di HP tingginya 44px.
+- **Salin tabel** menyalin baris yang tampil sebagai teks bertab, angka
+  polos, supaya kolomnya terpisah saat ditempel di Excel.
+- **Catatan tambahan dari sales** ditandai ikon `catatan` kuning tanah di
+  sebelah nama toko.
 
 ### Cap Tersimpan (signature)
 Kotak bergaris tinta 3px berisi ikon centang dan kata TERSIMPAN,

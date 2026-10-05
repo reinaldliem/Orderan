@@ -76,6 +76,7 @@ async function tabOrder(panel, ctx) {
       </div>
       <div class="tombol-baris aksi-order">
         <button type="button" class="btn" id="btn-segarkan">${ikon('segarkan', 19)}Segarkan</button>
+        <button type="button" class="btn abu kecil" id="btn-salin">${ikon('tempel', 17)}Salin tabel</button>
         <button type="button" class="btn abu kecil" id="btn-excel">${ikon('unduh', 17)}Excel</button>
         <button type="button" class="btn abu kecil" id="btn-sheet">${ikon('unduh', 17)}Google Sheet</button>
       </div>
@@ -106,6 +107,7 @@ async function tabOrder(panel, ctx) {
   let idBaru = new Set();    // order yang muncul sejak tarikan sebelumnya
   let idLama = null;         // id order pada tarikan sebelumnya (null = belum pernah)
   let kunciLama = '';        // saringan pada tarikan sebelumnya
+  let tampil = [];           // baris yang sedang terlihat, untuk Salin tabel
 
   async function tarik() {
     const d1 = inD1.value || awal;
@@ -160,7 +162,15 @@ async function tabOrder(panel, ctx) {
     }
   }
 
-  /** Satu baris per BARANG — order dengan 2 barang menjadi 2 baris. */
+  /** Tanggal ala Excel Indonesia: 05/10/2026. */
+  const tglSel = (iso) => String(iso).split('-').reverse().join('/');
+
+  /**
+   * Lembar kerja seperti Excel: satu baris per BARANG, garis di setiap sel,
+   * nomor baris di kiri, kepala kolom & nomor baris membeku saat digulir,
+   * baris total di bawah. Urutan kolom mengikuti contoh pemilik:
+   * tanggal - toko - barang - jumlah - harga - jumlah harga (+ no order).
+   */
   function gambarTabel() {
     const q = inCari.value.trim().toLowerCase();
     const baris = [];
@@ -184,6 +194,7 @@ async function tabOrder(panel, ctx) {
         total += Number(i.subtotal || 0);
       });
     }
+    tampil = baris;
 
     panel.querySelector('#ringkas').innerHTML = `
       <div class="sel"><div class="lbl">Order</div><div class="nilai">${nOrder}</div></div>
@@ -200,43 +211,46 @@ async function tabOrder(panel, ctx) {
     }
 
     elHasil.innerHTML = `
-      <table class="tabel-order">
-        <thead><tr>
-          <th scope="col">Tanggal</th>
-          <th scope="col">No Order</th>
-          <th scope="col">Toko</th>
-          <th scope="col">Barang</th>
-          <th scope="col" class="ang">Jumlah</th>
-          <th scope="col" class="ang">Harga</th>
-          <th scope="col" class="ang">Jumlah Harga</th>
-        </tr></thead>
-        <tbody>${baris.map(barisTabel).join('')}</tbody>
-      </table>`;
+      <div class="lembar-kerja" role="region" aria-label="Order per barang" tabindex="0">
+        <table class="sheet">
+          <thead><tr>
+            <th scope="col" class="k-nomor">#</th>
+            <th scope="col">Tanggal</th>
+            <th scope="col">Toko</th>
+            <th scope="col">Barang</th>
+            <th scope="col" class="ang">Jumlah</th>
+            <th scope="col" class="ang">Harga</th>
+            <th scope="col" class="ang">Jumlah Harga</th>
+            <th scope="col">No Order</th>
+          </tr></thead>
+          <tbody>${baris.map((b, k) => barisTabel(b, k + 1)).join('')}</tbody>
+          <tfoot><tr>
+            <td class="k-nomor"></td>
+            <td colspan="5">Total · ${nOrder} order · ${baris.length} barang</td>
+            <td class="ang">${esc(angka(total))}</td>
+            <td></td>
+          </tr></tfoot>
+        </table>
+      </div>`;
   }
 
-  function barisTabel({ p, i, awalOrder }) {
+  function barisTabel({ p, i, awalOrder }, nomor) {
     const baru = idBaru.has(p.id);
     const adaCatatan = (p.pesanan_catatan || []).length > 0;
-    const tgl = tanggalPendek(p.tanggal);
-    const jumlah = `${angka(i.qty)} ${i.satuan}`;
     const kelas = [awalOrder && 'awal-order', baru && 'baru'].filter(Boolean).join(' ');
     return `
-      <tr class="${kelas}" data-pesanan="${esc(p.id)}" tabindex="0">
-        <td class="k-tgl">${esc(tgl)}</td>
-        <td class="k-no"><span class="kode">${esc(p.no_pesanan)}</span>${
-          baru && awalOrder ? '<span class="tanda baru">Baru</span>' : ''}</td>
+      <tr class="${kelas}" data-pesanan="${esc(p.id)}">
+        <td class="k-nomor"${baru ? ' title="Order baru sejak terakhir disegarkan"' : ''}>${baru ? 'BARU' : nomor}</td>
+        <td>${esc(tglSel(p.tanggal))}</td>
         <td class="k-toko">${esc(p.toko_nama)}${
-          adaCatatan ? `<span class="tanda-catatan" title="Ada catatan tambahan dari sales">${ikon('catatan', 15)}</span>` : ''}</td>
-        <td class="k-barang">
-          <span class="nm">${esc(i.barang_nama)}</span>
-          <span class="hp-saja ket">${esc(jumlah)} × ${esc(rupiah(i.harga))}</span>
-          <span class="hp-saja ket">${esc(tgl)} · <span class="kode">${esc(p.no_pesanan)}</span>${
-            baru ? ' <span class="tanda baru">Baru</span>' : ''}</span>
-        </td>
-        <td class="k-qty ang">${esc(jumlah)}</td>
-        <td class="k-harga ang">${esc(rupiah(i.harga))}${
-          i.harga_per_kg ? `<span class="ket">${esc(rupiah(i.harga_per_kg))}/kg</span>` : ''}</td>
-        <td class="k-sub ang">${esc(rupiah(i.subtotal))}</td>
+          adaCatatan ? `<span class="tanda-catatan" title="Ada catatan tambahan dari sales">${ikon('catatan', 14)}</span>` : ''}</td>
+        <td>${esc(i.barang_nama)}</td>
+        <td class="ang">${esc(angka(i.qty))} ${esc(i.satuan)}</td>
+        <td class="ang">${esc(angka(i.harga))}${
+          i.harga_per_kg ? `<span class="ket">${esc(angka(i.harga_per_kg))}/kg</span>` : ''}</td>
+        <td class="ang k-sub">${esc(angka(i.subtotal))}</td>
+        <td><button type="button" class="buka-order" data-buka="${esc(p.id)}"
+                    title="Buka order ini">${esc(p.no_pesanan)}</button></td>
       </tr>`;
   }
 
@@ -291,22 +305,54 @@ async function tabOrder(panel, ctx) {
     });
   }
 
-  function bukaBaris(tr) {
-    const p = pesanan.find((x) => String(x.id) === tr.dataset.pesanan);
+  function bukaBaris(id) {
+    const p = pesanan.find((x) => String(x.id) === String(id));
     if (p) bukaDetail(p);
   }
 
+  // Klik sel = baris itu jadi baris aktif (nomor barisnya menyala), seperti
+  // sel aktif di Excel — membantu admin tidak salah baris saat menyalin ke
+  // program nota. Teks di sel tetap bisa diblok & disalin. Order dibuka lewat
+  // nomor order di ujung baris, atau dobel-klik barisnya.
   elHasil.addEventListener('click', (e) => {
-    const tr = e.target.closest('tr[data-pesanan]');
-    if (tr) bukaBaris(tr);
-  });
-  elHasil.addEventListener('keydown', (e) => {
-    if (e.key !== 'Enter' && e.key !== ' ') return;
-    const tr = e.target.closest('tr[data-pesanan]');
+    const b = e.target.closest('[data-buka]');
+    if (b) { bukaBaris(b.dataset.buka); return; }
+    const tr = e.target.closest('tbody tr[data-pesanan]');
     if (!tr) return;
-    e.preventDefault();
-    bukaBaris(tr);
+    elHasil.querySelectorAll('tr.terpilih').forEach((x) => x.classList.remove('terpilih'));
+    tr.classList.add('terpilih');
   });
+  elHasil.addEventListener('dblclick', (e) => {
+    const tr = e.target.closest('tbody tr[data-pesanan]');
+    if (tr && !e.target.closest('[data-buka]')) bukaBaris(tr.dataset.pesanan);
+  });
+
+  /**
+   * Salin semua baris yang sedang tampil sebagai teks bertab. Ditempel di
+   * Excel / Google Sheets, kolomnya langsung terpisah. Angka ditulis polos
+   * (10000, bukan "10.000") supaya dibaca sebagai angka; desimal pakai koma
+   * seperti Excel Indonesia.
+   */
+  async function salinTabel() {
+    if (!tampil.length) { pesan('Tidak ada baris untuk disalin.', 'salah'); return; }
+    const des = (v) => (v === null || v === undefined ? '' : String(v).replace('.', ','));
+    const sel1 = (v) => String(v ?? '').replace(/[\t\r\n]+/g, ' ');
+    const teks = [
+      ['Tanggal', 'Toko', 'Barang', 'Jumlah', 'Satuan', 'Harga', 'Jumlah Harga', 'No Order'],
+      ...tampil.map(({ p, i }) => [
+        tglSel(p.tanggal), p.toko_nama, i.barang_nama, des(i.qty), i.satuan,
+        des(i.harga), des(i.subtotal), p.no_pesanan,
+      ]),
+    ].map((r) => r.map(sel1).join('\t')).join('\n');
+    try {
+      await navigator.clipboard.writeText(teks);
+      pesan(`${tampil.length} baris disalin. Tempel di Excel atau program nota.`, 'ok');
+    } catch {
+      pesan('Perangkat ini tidak mengizinkan menyalin otomatis. Pakai tombol Excel.', 'salah');
+    }
+  }
+
+  panel.querySelector('#btn-salin').addEventListener('click', () => salinTabel());
 
   btnSegarkan.addEventListener('click', () => segarkan());
   inD1.addEventListener('change', () => segarkan());
