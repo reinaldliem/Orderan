@@ -30,6 +30,14 @@ export async function gambar(app, { setelahMasuk }) {
           yang paling lama tidak dipakai dikeluarkan. Kalau Anda tidak merasa
           masuk di perangkat lain, beri tahu admin.
         </div>
+      </div>` : habis === 'diam' ? `
+      <div class="sesi-habis" role="status">
+        ${ikon('jam', 20)}
+        <div>
+          <b>Aplikasi tidak dipakai lebih dari ${db.BATAS_DIAM_MENIT} menit.</b>
+          Demi keamanan, masuk lagi untuk melanjutkan. Order yang sedang
+          diketik tetap tersimpan.
+        </div>
       </div>` : habis ? `
       <div class="sesi-habis" role="status">
         ${ikon('jam', 20)}

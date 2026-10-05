@@ -25,14 +25,30 @@ const tempatSesi = (() => {
 export const SESI_BERLAKU_JAM = 12;
 const SESI_BERLAKU_MS = SESI_BERLAKU_JAM * 60 * 60 * 1000;
 
+/**
+ * Aplikasi yang TIDAK BERJALAN selama ini harus dimasuki lagi (pemilik,
+ * 5 Okt 2026). "Tidak berjalan" = HP membekukan atau mematikan browser:
+ * layar mati, pindah ke aplikasi lain, browser di-"clear". Di HP, browser
+ * mengembalikan tab beserta sessionStorage-nya setelah dimatikan, jadi
+ * sessionStorage saja tidak cukup.
+ *
+ * Dinilai di HP sendiri, BUKAN di server: sales yang aktif memakai aplikasi
+ * tanpa sinyal tetap dianggap berjalan. Di komputer, tab yang masih terbuka
+ * tetap berjalan walau tertutup jendela lain.
+ */
+export const BATAS_DIAM_MENIT = 30;
+const BATAS_DIAM_MS = BATAS_DIAM_MENIT * 60 * 1000;
+const KUNCI_HIDUP = 'order-hidup-v1';   // kapan halaman ini terakhir berjalan (ms)
+
 let sesi = null;
 let profil = null;
 
 /**
  * Kenapa sesi terakhir putus — bukan karena tombol Keluar:
  *   'habis'    = lewat batas SESI_BERLAKU_JAM
+ *   'diam'     = aplikasi tidak berjalan lebih dari BATAS_DIAM_MENIT
  *   'perangkat'= akun ini masuk di perangkat ke-3; perangkat ini yang paling
- *                lama, jadi dikeluarkan server (maks 2 perangkat per akun)
+ *                lama tidak dipakai, jadi dikeluarkan server (maks 2 per akun)
  */
 let alasanKeluar = null;
 
@@ -59,13 +75,27 @@ function lewatBatas(s) {
   return !s || typeof s.mulai !== 'number' || Date.now() - s.mulai >= SESI_BERLAKU_MS;
 }
 
-/** Buang sesi yang sudah habis. Mengembalikan true kalau memang dibuang. */
+function terlaluLamaDiam() {
+  let t = 0;
+  try { t = Number(tempatSesi?.getItem(KUNCI_HIDUP)) || 0; } catch { /* abaikan */ }
+  return t > 0 && Date.now() - t >= BATAS_DIAM_MS;
+}
+
+/** Catat bahwa halaman ini sedang berjalan. Dipanggil tiap menit & saat ditinggal. */
+export function tandaHidup() {
+  if (!sesi) return;
+  try { tempatSesi?.setItem(KUNCI_HIDUP, String(Date.now())); } catch { /* abaikan */ }
+}
+
+/** Buang sesi yang sudah habis / terlalu lama diam. True kalau memang dibuang. */
 function buangKalauHabis() {
-  if (!sesi || !lewatBatas(sesi)) return false;
+  if (!sesi) return false;
+  const habis = lewatBatas(sesi);
+  if (!habis && !terlaluLamaDiam()) return false;
   const token = sesi.access_token;
   simpanSesi(null);
   profil = null;
-  alasanKeluar = 'habis';
+  alasanKeluar = habis ? 'habis' : 'diam';
   cabutDiServer(token);   // supaya refresh_token-nya tidak bisa dipakai lagi
   return true;
 }
@@ -85,7 +115,7 @@ function cabutDiServer(token) {
   } catch { /* tidak ada internet — biarkan, sesi lokal sudah dihapus */ }
 }
 
-/** Kenapa sesi terakhir putus: 'habis' | 'perangkat' | null. Dipakai layar masuk. */
+/** Kenapa sesi terakhir putus: 'habis' | 'diam' | 'perangkat' | null. Dipakai layar masuk. */
 export function sesiHabis() {
   return alasanKeluar;
 }
@@ -101,7 +131,10 @@ function simpanSesi(s) {
   sesi = s;
   try {
     if (s) tempatSesi?.setItem(KUNCI_SESI, JSON.stringify(s));
-    else tempatSesi?.removeItem(KUNCI_SESI);
+    else {
+      tempatSesi?.removeItem(KUNCI_SESI);
+      tempatSesi?.removeItem(KUNCI_HIDUP);
+    }
   } catch { /* penyimpanan diblokir: sesi tetap hidup di memori tab ini */ }
 }
 
@@ -201,6 +234,7 @@ export async function masuk(username, pin) {
     kedaluwarsa: Date.now() + (d.expires_in ?? 3600) * 1000,
     mulai: Date.now(),   // titik hitung batas sesi
   });
+  tandaHidup();          // jangan sampai catatan sesi sebelumnya di tab ini terbawa
 
   alasanKeluar = null;
   profil = null;

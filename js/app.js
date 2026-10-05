@@ -211,21 +211,29 @@ async function gambarLogin() {
 // ------------------------------------------------------------
 let sedangCek = false;
 
+const PESAN_KELUAR = {
+  perangkat: 'Akun Anda dipakai masuk di perangkat lain, jadi perangkat ini dikeluarkan.',
+  diam: `Aplikasi tidak dipakai lebih dari ${db.BATAS_DIAM_MENIT} menit. Silakan masuk lagi.`,
+  habis: 'Sesi Anda sudah berakhir. Silakan masuk lagi.',
+};
+
 async function cekSesi() {
   if (!status.profil || sedangCek) return;    // sudah di layar masuk / sedang dicek
   sedangCek = true;
   try {
-    if (db.adaSesi() && await db.cekPerangkat()) return;   // masih berlaku
-    if (!status.profil) return;                            // sudah keluar lewat jalan lain
+    // adaSesi() sekaligus memeriksa batas 12 jam & 30 menit tidak berjalan.
+    if (db.adaSesi()) {
+      db.tandaHidup();                          // halaman ini sedang berjalan
+      if (await db.cekPerangkat()) return;      // dan server masih mengakui sesinya
+    }
+    if (!status.profil) return;                 // sudah keluar lewat jalan lain
 
     const alasan = db.sesiHabis();
     hapusMasterLokal();
     status.profil = null;
     location.hash = '';
     await gambarLogin();
-    pesan(alasan === 'perangkat'
-      ? 'Akun Anda dipakai masuk di perangkat lain, jadi perangkat ini dikeluarkan.'
-      : 'Sesi Anda sudah berakhir. Silakan masuk lagi.', 'salah');
+    pesan(PESAN_KELUAR[alasan] || PESAN_KELUAR.habis, 'salah');
   } finally {
     sedangCek = false;
   }
@@ -234,7 +242,9 @@ async function cekSesi() {
 function pantauSesi() {
   setInterval(cekSesi, 60_000);
   document.addEventListener('visibilitychange', () => {
-    if (!document.hidden) cekSesi();
+    // Ditinggal: catat saatnya. Di HP setelah ini halaman dibekukan/dimatikan.
+    if (document.hidden) db.tandaHidup();
+    else cekSesi();
   });
   // Tab ditutup / pindah situs: beri tahu server (lihat db.tandaiTutup).
   window.addEventListener('pagehide', () => db.tandaiTutup());
@@ -278,6 +288,15 @@ async function mulai() {
   try {
     const pr = await db.profilSaya();
     if (!pr || !pr.aktif) { await db.keluar(); await gambarLogin(); return; }
+    // Tanya server DULU sebelum isi aplikasi tampil: sesi ini bisa saja sudah
+    // dikeluarkan perangkat lain atau tabnya sudah ditutup lalu dipulihkan.
+    if (!(await db.cekPerangkat())) {
+      const alasan = db.sesiHabis();
+      await gambarLogin();
+      if (alasan === 'perangkat') pesan(PESAN_KELUAR.perangkat, 'salah');
+      return;
+    }
+    db.tandaHidup();
     status.profil = pr;
   } catch (e) {
     await gambarLogin();
@@ -289,7 +308,6 @@ async function mulai() {
   if (!location.hash) location.hash = '#/order';
   await gambarHalaman();
   segarkanMaster().catch(() => {});
-  cekSesi();   // langsung tanya server: jangan-jangan sudah dikeluarkan perangkat lain
 }
 
 window.addEventListener('hashchange', () => {
