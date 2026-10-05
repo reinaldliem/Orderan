@@ -6,6 +6,16 @@ import { CONFIG } from './config.js';
 const KUNCI_SESI = 'order-sesi-v1';
 
 /**
+ * Sesi disimpan PER TAB (sessionStorage), bukan permanen (localStorage):
+ * menutup tab / browser = harus masuk lagi. Muat ulang tetap masuk.
+ * Permintaan pemilik — sebelumnya membuka situs dari riwayat browser
+ * langsung masuk tanpa PIN.
+ */
+const tempatSesi = (() => {
+  try { return window.sessionStorage; } catch { return null; }
+})();
+
+/**
  * Berapa lama satu sesi berlaku, dihitung sejak MASUK — bukan sejak
  * pemakaian terakhir. Lewat batas ini token tidak diperpanjang lagi dan
  * pengguna wajib memasukkan username + PIN lagi.
@@ -27,10 +37,18 @@ let profil = null;
 let alasanKeluar = null;
 
 try {
-  sesi = JSON.parse(localStorage.getItem(KUNCI_SESI) || 'null');
+  sesi = JSON.parse(tempatSesi?.getItem(KUNCI_SESI) || 'null');
 } catch {
   sesi = null;
 }
+
+// Sesi versi lama tersimpan permanen di localStorage. Dibuang dan dicabut
+// di server SEKALI; setelah itu semua orang masuk lagi satu kali.
+try {
+  const lama = JSON.parse(localStorage.getItem(KUNCI_SESI) || 'null');
+  localStorage.removeItem(KUNCI_SESI);
+  if (lama?.access_token) cabutDiServer(lama.access_token);
+} catch { /* abaikan */ }
 
 /**
  * Sesi tanpa penanda `mulai` berasal dari versi sebelum fitur ini ada.
@@ -81,8 +99,10 @@ buangKalauHabis();
 
 function simpanSesi(s) {
   sesi = s;
-  if (s) localStorage.setItem(KUNCI_SESI, JSON.stringify(s));
-  else localStorage.removeItem(KUNCI_SESI);
+  try {
+    if (s) tempatSesi?.setItem(KUNCI_SESI, JSON.stringify(s));
+    else tempatSesi?.removeItem(KUNCI_SESI);
+  } catch { /* penyimpanan diblokir: sesi tetap hidup di memori tab ini */ }
 }
 
 function pesanGagal(data, status) {
@@ -205,26 +225,60 @@ export async function keluar() {
 }
 
 /**
- * Apakah sesi perangkat ini masih ada di server? Sesi bisa dihapus server
- * kalau akun yang sama masuk di perangkat ke-3 (maks 2 per akun; yang paling
- * lama keluar). Mengembalikan false HANYA kalau server menjawab "tidak ada" —
- * tanpa internet dianggap masih ada, supaya sales di lapangan tidak terlempar.
+ * Lapor ke server bahwa tab ini masih hidup, sekaligus tanya apakah sesinya
+ * masih berlaku. Jawaban server (cek_sesi):
+ *   'aktif'       -> lanjut
+ *   'dikeluarkan' -> akun ini masuk di perangkat ke-3 dan perangkat ini yang
+ *                    paling lama tidak dipakai (maks 2 perangkat per akun)
+ *   'ditutup'     -> halaman ini sudah ditinggalkan > 2 menit lalu dibuka lagi
+ *                    (mis. tab yang dipulihkan browser) -> wajib masuk lagi
+ * Tanpa internet dianggap masih berlaku, supaya sales di lapangan tidak terlempar.
  */
 export async function cekPerangkat() {
   if (!sesi) return false;
-  let ada;
+  let st;
   try {
-    ada = await rpc('sesi_masih_ada');
+    st = await rpc('cek_sesi');
   } catch {
     return !!sesi;   // gagal tersambung / token ditolak: diurus di tempat lain
   }
-  if (ada === false) {
+  if (st === 'dikeluarkan') {
     simpanSesi(null);   // sesinya sudah dihapus server, tidak perlu logout
     profil = null;
     alasanKeluar = 'perangkat';
     return false;
   }
+  if (st === 'ditutup') {
+    const token = sesi?.access_token;
+    simpanSesi(null);
+    profil = null;
+    alasanKeluar = null;
+    cabutDiServer(token);
+    return false;
+  }
   return true;
+}
+
+/**
+ * Halaman ditinggalkan (tab ditutup, pindah situs, atau muat ulang — browser
+ * tidak membedakannya). Tandai sesinya "tertutup" di server supaya kalau ada
+ * login baru, sesi inilah yang dibuang lebih dulu — bukan HP yang masih
+ * dipakai. Muat ulang aman: laporan berikutnya dalam 2 menit membatalkan tanda.
+ */
+export function tandaiTutup() {
+  if (!sesi?.access_token) return;
+  try {
+    fetch(CONFIG.URL + '/rest/v1/rpc/tutup_sesi', {
+      method: 'POST',
+      keepalive: true,   // tetap terkirim walau halamannya sedang ditutup
+      headers: {
+        apikey: CONFIG.KUNCI_PUBLIK,
+        Authorization: 'Bearer ' + sesi.access_token,
+        'Content-Type': 'application/json',
+      },
+      body: '{}',
+    }).catch(() => {});
+  } catch { /* abaikan */ }
 }
 
 export function adaSesi() {

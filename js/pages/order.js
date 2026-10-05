@@ -12,7 +12,8 @@ export async function gambar(isi, ctx) {
   await segarkanMaster();
 
   const tgl = hariIni();
-  const draf = bacaDraf(tgl);
+  const uid = status.profil?.id;
+  const draf = bacaDraf(tgl, uid);
 
   // Baris kode batch: tanggal dan kode sales, kecil, di paling atas —
   // seperti kode cetak di pojok karung. Bukan kartu tersendiri.
@@ -42,6 +43,7 @@ export async function gambar(isi, ctx) {
         if (!adaIsi) { localStorage.removeItem(KUNCI_DRAF); return; }
         localStorage.setItem(KUNCI_DRAF, JSON.stringify({
           tgl,
+          uid,   // draf hanya kembali untuk akun yang sama (HP bisa dipakai bergantian)
           toko: d.toko_id || d.toko_nama ? { id: d.toko_id, nama: d.toko_nama } : null,
           catatan: d.catatan,
           item: d.item,
@@ -84,10 +86,16 @@ export async function gambar(isi, ctx) {
   });
 }
 
-function bacaDraf(tgl) {
+/**
+ * Draf sengaja tetap di localStorage (bukan per tab seperti sesi): kalau
+ * browser HP menutup tab saat sales mengetik order di depan pelanggan,
+ * isiannya kembali setelah masuk lagi. Tapi hanya untuk AKUN YANG SAMA —
+ * draf akun lain di HP yang sama tidak pernah ditampilkan.
+ */
+function bacaDraf(tgl, uid) {
   try {
     const d = JSON.parse(localStorage.getItem(KUNCI_DRAF) || 'null');
-    if (!d || d.tgl !== tgl) return null;
+    if (!d || d.tgl !== tgl || !uid || d.uid !== uid) return null;
     const adaIsi = d.toko || (d.item || []).some((i) => i.barang_nama || i.qty);
     return adaIsi ? d : null;
   } catch {

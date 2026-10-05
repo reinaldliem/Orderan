@@ -20,9 +20,17 @@ export const status = {
 // ------------------------------------------------------------
 const KUNCI_MASTER = 'order-master-v2';
 
+// Daftar toko & barang ikut disimpan per tab (sessionStorage), sama seperti
+// sesi: tidak tersisa di HP/komputer setelah tabnya ditutup. Sisa versi lama
+// di localStorage dibuang.
+const tempatMaster = (() => {
+  try { localStorage.removeItem(KUNCI_MASTER); } catch { /* abaikan */ }
+  try { return window.sessionStorage; } catch { return null; }
+})();
+
 function muatMasterLokal() {
   try {
-    const m = JSON.parse(localStorage.getItem(KUNCI_MASTER) || 'null');
+    const m = JSON.parse(tempatMaster?.getItem(KUNCI_MASTER) || 'null');
     if (m && Array.isArray(m.toko) && Array.isArray(m.barang)) {
       status.toko = m.toko;
       status.barang = m.barang;
@@ -62,7 +70,7 @@ async function ambilMaster() {
   status.tokoSaya = punyaSaya ? new Set(punyaSaya.map((r) => r.toko_id)) : null;
 
   try {
-    localStorage.setItem(KUNCI_MASTER, JSON.stringify({
+    tempatMaster?.setItem(KUNCI_MASTER, JSON.stringify({
       toko, barang,
       tokoSaya: status.tokoSaya ? [...status.tokoSaya] : null,
       pada: Date.now(),
@@ -71,7 +79,7 @@ async function ambilMaster() {
 }
 
 export function hapusMasterLokal() {
-  localStorage.removeItem(KUNCI_MASTER);
+  try { tempatMaster?.removeItem(KUNCI_MASTER); } catch { /* abaikan */ }
   status.toko = [];
   status.barang = [];
   status.tokoSaya = null;
@@ -228,6 +236,11 @@ function pantauSesi() {
   document.addEventListener('visibilitychange', () => {
     if (!document.hidden) cekSesi();
   });
+  // Tab ditutup / pindah situs: beri tahu server (lihat db.tandaiTutup).
+  window.addEventListener('pagehide', () => db.tandaiTutup());
+  // Kembali lewat tombol Back dari cache browser: kode tidak dimuat ulang,
+  // jadi tanya server lagi apakah sesinya masih berlaku.
+  window.addEventListener('pageshow', (e) => { if (e.persisted) cekSesi(); });
 }
 
 // ------------------------------------------------------------

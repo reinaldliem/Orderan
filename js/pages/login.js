@@ -27,8 +27,8 @@ export async function gambar(app, { setelahMasuk }) {
         <div>
           <b>Akun ini masuk di perangkat lain.</b>
           Satu akun hanya boleh aktif di 2 perangkat sekaligus, jadi perangkat
-          yang paling lama dikeluarkan. Kalau Anda tidak merasa masuk di
-          perangkat lain, beri tahu admin.
+          yang paling lama tidak dipakai dikeluarkan. Kalau Anda tidak merasa
+          masuk di perangkat lain, beri tahu admin.
         </div>
       </div>` : habis ? `
       <div class="sesi-habis" role="status">
