@@ -289,6 +289,13 @@ body.kb-open .btn.blok-bawah, body.tanpa-bar .btn.blok-bawah { bottom: 12px; }
   max-height: 88dvh; display: flex; flex-direction: column;
   overflow: hidden;
 }
+/* Lembar pilih toko/barang: TINGGI TETAP. Kalau mengikuti isinya, daftar yang
+   menyusut saat mengetik nama baru membuat kotak ketik turun ke dasar layar —
+   tepat di bawah papan tombol HP. Dengan tinggi tetap, kotak ketik selalu di
+   atas, dan tombol "Pakai …" (ditaruh paling atas bila tak ada yang cocok)
+   tetap terlihat. */
+.lembar.lembar-pilih { height: 88vh; height: 88dvh; }
+.lembar-pilih .daftar { flex: 1 1 auto; min-height: 0; }
 .lembar-atas { padding: 13px 15px; border-bottom: 2px solid var(--tinta); }
 .lembar-atas .tajuk { display: flex; align-items: center; gap: 10px; margin-bottom: 11px; }
 .lembar-atas h3 {

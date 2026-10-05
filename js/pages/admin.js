@@ -628,7 +628,7 @@ async function tabMaster(panel, ctx, o) {
       <div class="lembar" role="dialog" aria-modal="true">
         <div class="lembar-atas"><div class="tajuk">
           <h3>Ubah ${esc(o.judul.toLowerCase())}</h3>
-          <button type="button" class="tutup" aria-label="Tutup">&times;</button>
+          <button type="button" class="tutup" aria-label="Tutup">${ikon('silang', 18)}</button>
         </div></div>
         <div class="daftar" style="padding:14px">
           ${o.formUbah(r)}
@@ -673,7 +673,7 @@ async function tabMaster(panel, ctx, o) {
       <div class="lembar" role="dialog" aria-modal="true">
         <div class="lembar-atas"><div class="tajuk">
           <h3>Tambah ${esc(o.judul.toLowerCase())}</h3>
-          <button type="button" class="tutup" aria-label="Tutup">&times;</button>
+          <button type="button" class="tutup" aria-label="Tutup">${ikon('silang', 18)}</button>
         </div></div>
         <div class="daftar" style="padding:14px">
           ${o.formTambah()}
@@ -713,7 +713,7 @@ async function tabMaster(panel, ctx, o) {
       <div class="lembar" role="dialog" aria-modal="true">
         <div class="lembar-atas"><div class="tajuk">
           <h3>Tempel dari Excel</h3>
-          <button type="button" class="tutup" aria-label="Tutup">&times;</button>
+          <button type="button" class="tutup" aria-label="Tutup">${ikon('silang', 18)}</button>
         </div></div>
         <div class="daftar" style="padding:14px">
           <div class="peringatan">

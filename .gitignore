@@ -1,6 +1,14 @@
-# JANGAN unggah ke repo publik — isinya rahasia:
-sql/          # 02-akun.sql memuat PIN semua sales
-data/         # HPP barang & daftar pelanggan
+# JANGAN unggah ke repo publik — isinya rahasia.
+#
+# PERHATIAN: git TIDAK mengenal komentar di ujung baris. Baris seperti
+#   sql/   # keterangan
+# dibaca sebagai satu nama folder yang harfiah, sehingga sql/ TIDAK
+# diabaikan sama sekali. Komentar wajib di baris sendiri, seperti di bawah.
+
+# 02-akun.sql memuat PIN semua sales
+sql/
+# HPP barang & daftar pelanggan
+data/
 *.xlsx
 *.pdf
 *.csv

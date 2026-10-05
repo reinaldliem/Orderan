@@ -8,6 +8,7 @@
 // Jadi satu pintu untuk semua: semen per sak, paku per dus 25 kg,
 // kawat seng per rol yang tiap ukuran beratnya beda.
 
+import { ikon } from './ikon.js';
 import { esc, rupiah, angka, keAngka, pecahTempelan } from './util.js';
 
 let nomorFormBarang = 0;
@@ -122,7 +123,7 @@ export function buatFormBarang(o = {}) {
     b.innerHTML = `
       <div class="item-atas">
         <span class="no"></span><b>Ukuran</b>
-        <button type="button" class="buang" aria-label="Hapus ukuran">&times;</button>
+        <button type="button" class="buang" aria-label="Hapus ukuran">${ikon('silang', 18)}</button>
       </div>
       <div class="baris">
         <label class="label">Ukuran / keterangan</label>

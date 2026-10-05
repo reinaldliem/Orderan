@@ -3,6 +3,7 @@
 //   2. Admin mengubah order       (pages/admin.js)
 // Satu tempat saja supaya aturan harga per-kilo tidak ditulis berulang.
 
+import { ikon } from './ikon.js';
 import { buatPilih } from './pilih.js';
 import { rupiah, angka, keAngka, pesan, tanya } from './util.js';
 
@@ -108,7 +109,7 @@ export function buatFormOrder(o) {
       <div class="item-atas">
         <span class="no"></span>
         <b>Barang</b>
-        <button type="button" class="buang" aria-label="Hapus barang">&times;</button>
+        <button type="button" class="buang" aria-label="Hapus barang">${ikon('silang', 18)}</button>
       </div>
       <div data-slot="pilih"></div>
       <div class="dua">
@@ -168,6 +169,7 @@ export function buatFormOrder(o) {
       },
     });
     kotak.querySelector('[data-slot="pilih"]').appendChild(pilihBarang.el);
+    baris.bukaPilih = () => pilihBarang.buka();
 
     inQty.addEventListener('input', ubah);
     inHarga.addEventListener('input', ubah);
@@ -262,9 +264,15 @@ export function buatFormOrder(o) {
     return total;
   }
 
+  // "Tambah barang" langsung membuka daftar barang: langkah berikutnya memang
+  // selalu memilih barang, jadi satu ketukan dihemat untuk setiap barang.
+  // Gulirnya INSTAN, bukan halus: saat lembar terbuka, util.js mencatat posisi
+  // halaman — posisi di tengah animasi akan tercatat salah, dan setelah lembar
+  // ditutup pengguna mendarat di tempat yang keliru.
   el.querySelector('[data-aksi="tambah"]').addEventListener('click', () => {
     const b = tambahItem();
-    b.el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    b.el.scrollIntoView({ block: 'center', behavior: 'instant' });
+    b.bukaPilih();
   });
 
   elCatatan?.addEventListener('input', () => o.saatUbah?.());
