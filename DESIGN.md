@@ -379,11 +379,30 @@ menghitung naik, tidak pernah memantul.
 ### Meja Order (Admin → Order)
 Tempat admin sales menerima order lalu memindahkannya ke program nota
 utama, disajikan sebagai **lembar kerja seperti Excel** — di desktop
-maupun HP. Website tidak membuat atau melacak nomor nota, hanya nomor order.
+maupun HP. Website hanya membuat **nomor order**; nomor nota selalu dari
+program nota pemilik — admin menempelnya, website tidak pernah membuatnya.
 - **Satu baris per barang.** Order dua barang = dua baris; tanggal, toko,
   dan no order diulang di setiap baris. Urutan kolom mengikuti contoh
   pemilik: # · Tanggal · Toko · Barang · Jumlah · Harga · Jumlah Harga ·
-  No Order. Tanggal `dd/mm/yyyy`, angka tanpa "Rp" (10.000), seperti Excel.
+  No Order · **Nota** · **No Nota**. Tanggal `dd/mm/yyyy`, angka tanpa "Rp"
+  (10.000), seperti Excel.
+- **Kolom Nota (centang)** membeku di **kanan**, jadi di HP selalu
+  terjangkau tanpa menggeser lembar. Pending = kotak 22px bergaris
+  **putus-putus** `tunggu` (bahasa yang sama dengan tanda usulan); Sudah =
+  blok tinta penuh bercentang. Seluruh sel adalah sasaran ketuk (≥ 44px
+  di HP). Di bawah 600px kata SUDAH/PENDING disembunyikan — kotaknya saja.
+  Baris Sudah ditulis `tinta-2` supaya yang Pending menonjol.
+- **Kolom No Nota** = isian 16px bergaris `garis`. Menempel **mengganti**
+  isi sel dan langsung tersimpan; nomor terisi → server menjadikan Sudah.
+  Enter = turun ke baris berikutnya, Esc = batal. Nomor lama pada barang
+  yang diubah setelah bernota tampil **dicoret** merah oksida (`sinyal`),
+  seperti `.tanda.mati`.
+- **Saringan status** Semua / Pending / Sudah (gaya `.saring`, bawaan
+  Pending). Baris yang baru diubah statusnya tidak langsung hilang —
+  hilang saat saringan diganti atau Segarkan, supaya salah centang bisa
+  dibatalkan di tempat.
+- **Ringkasan** empat blok: Order · Baris barang · Pending nota · Total
+  nilai. Blok Pending nota berganti ladang `tunggu` selama masih ada sisa.
 - **Garis di setiap sel** (1px `garis`); satu order dipisah dari order
   berikutnya oleh garis tinta 2px.
 - **Membeku:** kepala kolom (blok tinta terbalik) di atas, kolom nomor baris
@@ -400,7 +419,9 @@ maupun HP. Website tidak membuat atau melacak nomor nota, hanya nomor order.
 - **No Order** bergaris bawah = pintu ke rincian order (catatan, Ubah,
   Hapus); juga lewat dobel-klik baris. Di HP tingginya 44px.
 - **Salin tabel** menyalin baris yang tampil sebagai teks bertab, angka
-  polos, supaya kolomnya terpisah saat ditempel di Excel.
+  polos, supaya kolomnya terpisah saat ditempel di Excel. **Unduh
+  Excel/Google Sheet** juga hanya baris yang tampil; keduanya membawa
+  kolom Status Nota dan No Nota.
 - **Catatan tambahan dari sales** ditandai ikon `catatan` kuning tanah di
   sebelah nama toko.
 

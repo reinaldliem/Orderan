@@ -70,8 +70,14 @@ async function tabOrder(panel, ctx) {
           <input type="date" id="d2" value="${akhir}"></div>
         <div><label class="label" for="f-sales">Sales</label>
           <select id="f-sales"><option value="">Semua sales</option></select></div>
+        <div><span class="label" id="lbl-status">Status nota</span>
+          <div class="saring" id="f-status" role="group" aria-labelledby="lbl-status">
+            <button type="button" data-status="semua" aria-pressed="false">Semua</button>
+            <button type="button" data-status="pending" aria-pressed="true" class="aktif">Pending</button>
+            <button type="button" data-status="sudah" aria-pressed="false">Sudah</button>
+          </div></div>
         <div><label class="label" for="f-cari">Cari</label>
-          <input type="text" id="f-cari" placeholder="Toko, barang, no order…"
+          <input type="text" id="f-cari" placeholder="Toko, barang, no order, no nota…"
                  autocomplete="off" enterkeyhint="search"></div>
       </div>
       <div class="tombol-baris aksi-order">
@@ -82,7 +88,7 @@ async function tabOrder(panel, ctx) {
       </div>
       <div class="info-segar" id="info-segar" aria-live="polite"></div>
     </div>
-    <div class="ringkas tiga" id="ringkas"></div>
+    <div class="ringkas empat" id="ringkas"></div>
     <div id="hasil"></div>`;
 
   const salesList = await db.pilih('profil', { select: 'id,nama,username,peran', order: 'nama.asc' });
@@ -107,7 +113,13 @@ async function tabOrder(panel, ctx) {
   let idBaru = new Set();    // order yang muncul sejak tarikan sebelumnya
   let idLama = null;         // id order pada tarikan sebelumnya (null = belum pernah)
   let kunciLama = '';        // saringan pada tarikan sebelumnya
-  let tampil = [];           // baris yang sedang terlihat, untuk Salin tabel
+  let tampil = [];           // baris yang sedang terlihat, untuk Salin tabel & unduh
+  let status = 'pending';    // saringan status nota: semua | pending | sudah
+  // Barang yang statusnya baru diubah TIDAK langsung hilang dari saringan
+  // Pending/Sudah — supaya salah centang masih bisa dibatalkan di tempat.
+  // Dikosongkan saat saringan diganti atau Segarkan ditekan.
+  let tetapTampil = new Set();
+  const menyimpan = new Map(); // id barang -> no nota yang sedang dikirim
 
   async function tarik() {
     const d1 = inD1.value || awal;
@@ -115,7 +127,8 @@ async function tabOrder(panel, ctx) {
     // dua syarat pada kolom yang sama -> pakai penyaring "and"
     const q = {
       select: 'id,no_pesanan,tanggal,sales_id,toko_id,toko_nama,catatan,total,' +
-              'pesanan_item(urut,barang_id,barang_nama,satuan,qty,harga,harga_per_kg,berat_kg,subtotal),' +
+              'pesanan_item(id,urut,barang_id,barang_nama,satuan,qty,harga,harga_per_kg,berat_kg,subtotal,' +
+              'nota_dibuat,no_nota,nota_pada),' +
               'pesanan_catatan(teks,dibuat_pada)',
       and: `(tanggal.gte.${d1},tanggal.lte.${d2})`,
       order: 'tanggal.desc,id.desc',
@@ -145,6 +158,7 @@ async function tabOrder(panel, ctx) {
         : new Set();
       idLama = sekarang;
       kunciLama = kunci;
+      tetapTampil = new Set();
 
       const jam = new Intl.DateTimeFormat('id-ID', {
         timeZone: 'Asia/Jakarta', hour: '2-digit', minute: '2-digit',
@@ -162,31 +176,39 @@ async function tabOrder(panel, ctx) {
     }
   }
 
-  /** Tanggal ala Excel Indonesia: 05/10/2026. */
-  const tglSel = (iso) => String(iso).split('-').reverse().join('/');
+  /** Lolos saringan status? Barang yang baru diubah tetap tampil (lihat tetapTampil). */
+  function lolosStatus(i) {
+    if (status === 'semua' || tetapTampil.has(i.id)) return true;
+    return status === 'sudah' ? !!i.nota_dibuat : !i.nota_dibuat;
+  }
 
   /**
-   * Lembar kerja seperti Excel: satu baris per BARANG, garis di setiap sel,
-   * nomor baris di kiri, kepala kolom & nomor baris membeku saat digulir,
-   * baris total di bawah. Urutan kolom mengikuti contoh pemilik:
-   * tanggal - toko - barang - jumlah - harga - jumlah harga (+ no order).
+   * Hitung baris yang tampil. Cari dulu, baru saringan status.
+   * "Pending" dihitung dari semua barang yang cocok dengan pencarian —
+   * tidak ikut saringan status — supaya admin selalu tahu sisa pekerjaannya.
    */
-  function gambarTabel() {
+  function hitung() {
     const q = inCari.value.trim().toLowerCase();
     const baris = [];
     let nOrder = 0;
     let total = 0;
+    let nPending = 0;
+    let adaCocok = false;
 
     for (const p of pesanan) {
       const item = (p.pesanan_item || []).slice().sort((a, b) => a.urut - b.urut);
       // Cocok di toko / no order -> semua barangnya ikut.
-      // Cocok di nama barang saja -> hanya barang itu.
+      // Cocok di nama barang / no nota -> hanya barang itu.
       const cocokOrder = !q ||
         String(p.toko_nama).toLowerCase().includes(q) ||
         String(p.no_pesanan).toLowerCase().includes(q);
-      const terpilih = cocokOrder
-        ? item
-        : item.filter((i) => String(i.barang_nama).toLowerCase().includes(q));
+      const cocok = cocokOrder ? item : item.filter((i) =>
+        String(i.barang_nama).toLowerCase().includes(q) ||
+        String(i.no_nota ?? '').toLowerCase().includes(q));
+      if (cocok.length) adaCocok = true;
+      nPending += cocok.filter((i) => !i.nota_dibuat).length;
+
+      const terpilih = cocok.filter(lolosStatus);
       if (!terpilih.length) continue;
       nOrder += 1;
       terpilih.forEach((i, k) => {
@@ -194,19 +216,45 @@ async function tabOrder(panel, ctx) {
         total += Number(i.subtotal || 0);
       });
     }
-    tampil = baris;
+    return { baris, nOrder, total, nPending, adaCocok };
+  }
 
+  function gambarRingkas({ baris, nOrder, total, nPending }) {
     panel.querySelector('#ringkas').innerHTML = `
       <div class="sel"><div class="lbl">Order</div><div class="nilai">${nOrder}</div></div>
       <div class="sel"><div class="lbl">Baris barang</div><div class="nilai">${baris.length}</div></div>
+      <div class="sel${nPending ? ' ada-pending' : ''}"><div class="lbl">Pending nota</div><div class="nilai">${nPending}</div></div>
       <div class="sel"><div class="lbl">Total nilai</div><div class="nilai">${esc(rupiah(total))}</div></div>`;
+  }
+
+  /** Tanggal ala Excel Indonesia: 05/10/2026. */
+  const tglSel = (iso) => String(iso).split('-').reverse().join('/');
+
+  /**
+   * Lembar kerja seperti Excel: satu baris per BARANG, garis di setiap sel,
+   * nomor baris di kiri, kepala kolom & nomor baris membeku saat digulir,
+   * baris total di bawah. Urutan kolom mengikuti contoh pemilik:
+   * tanggal - toko - barang - jumlah - harga - jumlah harga (+ no order),
+   * lalu di ujung: centang Sudah/Pending dan No Nota dari program nota utama.
+   */
+  function gambarTabel() {
+    const h = hitung();
+    const { baris, nOrder, total } = h;
+    tampil = baris;
+    gambarRingkas(h);
 
     if (!pesanan.length) {
       elHasil.innerHTML = `<div class="kosong-pesan"><span class="ikon">${ikon('kosong', 40)}</span>Belum ada order pada rentang ini.</div>`;
       return;
     }
-    if (!baris.length) {
+    if (!h.adaCocok) {
       elHasil.innerHTML = `<div class="kosong-pesan"><span class="ikon">${ikon('cari', 40)}</span>Tidak ada yang cocok dengan “${esc(inCari.value.trim())}”.</div>`;
+      return;
+    }
+    if (!baris.length) {
+      elHasil.innerHTML = status === 'pending'
+        ? `<div class="kosong-pesan"><span class="ikon">${ikon('centang', 40)}</span>Semua barang di sini sudah dibuat notanya.</div>`
+        : `<div class="kosong-pesan"><span class="ikon">${ikon('kosong', 40)}</span>Belum ada barang yang dibuat notanya di sini.</div>`;
       return;
     }
 
@@ -222,6 +270,8 @@ async function tabOrder(panel, ctx) {
             <th scope="col" class="ang">Harga</th>
             <th scope="col" class="ang">Jumlah Harga</th>
             <th scope="col">No Order</th>
+            <th scope="col" class="k-cek">Nota</th>
+            <th scope="col">No Nota</th>
           </tr></thead>
           <tbody>${baris.map((b, k) => barisTabel(b, k + 1)).join('')}</tbody>
           <tfoot><tr>
@@ -229,17 +279,26 @@ async function tabOrder(panel, ctx) {
             <td colspan="5">Total · ${nOrder} order · ${baris.length} barang</td>
             <td class="ang">${esc(angka(total))}</td>
             <td></td>
+            <td class="k-cek"></td>
+            <td></td>
           </tr></tfoot>
         </table>
       </div>`;
   }
 
+  /** Nomor nota yang tertinggal di barang Pending = nota lama, perlu dibuat ulang. */
+  const notaBasi = (i) => !i.nota_dibuat && !!i.no_nota;
+  const JUDUL_BASI = 'Nomor nota lama: barang ini diubah setelah notanya dibuat. ' +
+                     'Buat nota baru, lalu tempel nomornya di sini.';
+
   function barisTabel({ p, i, awalOrder }, nomor) {
     const baru = idBaru.has(p.id);
     const adaCatatan = (p.pesanan_catatan || []).length > 0;
-    const kelas = [awalOrder && 'awal-order', baru && 'baru'].filter(Boolean).join(' ');
+    const basi = notaBasi(i);
+    const kelas = [awalOrder && 'awal-order', baru && 'baru', i.nota_dibuat && 'sudah']
+      .filter(Boolean).join(' ');
     return `
-      <tr class="${kelas}" data-pesanan="${esc(p.id)}">
+      <tr class="${kelas}" data-pesanan="${esc(p.id)}" data-item="${esc(i.id)}">
         <td class="k-nomor"${baru ? ' title="Order baru sejak terakhir disegarkan"' : ''}>${baru ? 'BARU' : nomor}</td>
         <td>${esc(tglSel(p.tanggal))}</td>
         <td class="k-toko">${esc(p.toko_nama)}${
@@ -251,7 +310,145 @@ async function tabOrder(panel, ctx) {
         <td class="ang k-sub">${esc(angka(i.subtotal))}</td>
         <td><button type="button" class="buka-order" data-buka="${esc(p.id)}"
                     title="Buka order ini">${esc(p.no_pesanan)}</button></td>
+        <td class="k-cek"><label class="cek-nota">
+          <input type="checkbox" data-cek="${esc(i.id)}"${i.nota_dibuat ? ' checked' : ''}
+                 aria-label="Sudah dibuat nota: ${esc(i.barang_nama)}, ${esc(p.toko_nama)}">
+          <span class="kotak" aria-hidden="true">${ikon('centang', 16)}</span>
+          <span class="teks">${i.nota_dibuat ? 'Sudah' : 'Pending'}</span>
+        </label></td>
+        <td class="k-nota"><input type="text" class="isi-nota${basi ? ' basi' : ''}"
+               data-nota="${esc(i.id)}" value="${esc(i.no_nota ?? '')}"
+               placeholder="Tempel no nota" maxlength="60" autocomplete="off"
+               autocapitalize="off" spellcheck="false" enterkeyhint="next"
+               aria-label="No nota untuk ${esc(i.barang_nama)}, ${esc(p.toko_nama)}"${
+               basi ? ` title="${esc(JUDUL_BASI)}"` : ''}></td>
       </tr>`;
+  }
+
+  /* ---------- status & nomor nota: disimpan per barang, lewat RPC admin ---------- */
+
+  function cariItem(id) {
+    for (const p of pesanan) {
+      const i = (p.pesanan_item || []).find((x) => String(x.id) === String(id));
+      if (i) return i;
+    }
+    return null;
+  }
+
+  /**
+   * Terapkan jawaban server ke data & ke baris di layar TANPA menggambar ulang
+   * tabel — fokus, posisi gulir, dan isian yang sedang diketik tidak terganggu.
+   */
+  function terapkan(r) {
+    const i = cariItem(r.id);
+    if (!i) return;
+    i.nota_dibuat = !!r.nota_dibuat;
+    i.no_nota = r.no_nota ?? null;
+    i.nota_pada = r.nota_pada ?? null;
+    tetapTampil.add(i.id);
+
+    const tr = elHasil.querySelector(`tr[data-item="${CSS.escape(String(i.id))}"]`);
+    if (tr) {
+      tr.classList.toggle('sudah', i.nota_dibuat);
+      const cb = tr.querySelector('[data-cek]');
+      cb.checked = i.nota_dibuat;
+      tr.querySelector('.cek-nota .teks').textContent = i.nota_dibuat ? 'Sudah' : 'Pending';
+      const inp = tr.querySelector('[data-nota]');
+      if (document.activeElement !== inp) inp.value = i.no_nota ?? '';
+      const basi = notaBasi(i);
+      inp.classList.toggle('basi', basi);
+      if (basi) inp.title = JUDUL_BASI; else inp.removeAttribute('title');
+    }
+    gambarRingkas(hitung());
+  }
+
+  async function ubahStatus(cb) {
+    const mau = cb.checked;
+    cb.disabled = true;
+    try {
+      const hasil = await db.rpc('set_status_nota', { p_item_ids: [Number(cb.dataset.cek)], p_dibuat: mau });
+      const r = Array.isArray(hasil) ? hasil[0] : null;
+      if (!r) throw new Error('Barang ini sudah tidak ada. Tekan Segarkan.');
+      terapkan(r);
+    } catch (err) {
+      cb.checked = !mau;
+      pesan(err.message || 'Gagal menyimpan status nota.', 'salah');
+    } finally {
+      cb.disabled = false;
+    }
+  }
+
+  /**
+   * Simpan no nota yang ditempel admin. Server yang memutuskan: nomor terisi
+   * -> otomatis Sudah. Website tidak pernah membuat nomor nota sendiri.
+   */
+  async function simpanNota(inp) {
+    const id = inp.dataset.nota;
+    const i = cariItem(id);
+    if (!i) return;
+    const nilai = inp.value.trim();
+    if (nilai === (i.no_nota ?? '') || menyimpan.get(id) === nilai) return;
+
+    menyimpan.set(id, nilai);
+    try {
+      const r = await db.rpc('set_no_nota', { p_item_id: Number(id), p_no_nota: nilai });
+      if (menyimpan.get(id) !== nilai) return;   // sudah diganti lagi, simpanan berikutnya menang
+      if (document.activeElement === inp && inp.value.trim() === nilai) inp.value = r.no_nota ?? '';
+      terapkan(r);
+      const sel = inp.closest('td');
+      sel?.classList.add('tersimpan');
+      setTimeout(() => sel?.classList.remove('tersimpan'), 1200);
+    } catch (err) {
+      if (menyimpan.get(id) === nilai) inp.value = i.no_nota ?? '';
+      pesan(err.message || 'Gagal menyimpan no nota.', 'salah');
+    } finally {
+      if (menyimpan.get(id) === nilai) menyimpan.delete(id);
+    }
+  }
+
+  elHasil.addEventListener('change', (e) => {
+    const cb = e.target.closest('[data-cek]');
+    if (cb) { ubahStatus(cb); return; }
+    const inp = e.target.closest('[data-nota]');
+    if (inp) simpanNota(inp);
+  });
+  // Tempel = MENGGANTI isi sel (seperti Excel) lalu langsung tersimpan, tanpa
+  // Enter. Salinan dari sel Excel/program nota sering membawa Enter di ujung;
+  // yang dipakai hanya baris pertama yang berisi.
+  elHasil.addEventListener('paste', (e) => {
+    const inp = e.target.closest('[data-nota]');
+    if (!inp || !e.clipboardData) return;
+    const baris = e.clipboardData.getData('text').split(/\r?\n/).map((s) => s.trim()).filter(Boolean);
+    if (!baris.length) return;
+    e.preventDefault();
+    inp.value = baris[0].slice(0, 60);
+    if (baris.length > 1) pesan('Yang ditempel lebih dari satu baris — hanya baris pertama yang dipakai.', 'salah');
+    simpanNota(inp);
+  });
+  // Masuk ke isian = isinya terblok, jadi tempelan MENGGANTI nomor lama.
+  elHasil.addEventListener('focusin', (e) => {
+    const inp = e.target.closest('[data-nota]');
+    if (inp) inp.select();
+  });
+  // Enter = simpan & turun ke baris berikutnya, seperti Excel. Esc = batal.
+  elHasil.addEventListener('keydown', (e) => {
+    const inp = e.target.closest('[data-nota]');
+    if (!inp) return;
+    if (e.key === 'Escape') {
+      inp.value = cariItem(inp.dataset.nota)?.no_nota ?? '';
+      inp.blur();
+      return;
+    }
+    if (e.key !== 'Enter' || e.isComposing) return;
+    e.preventDefault();
+    const semua = [...elHasil.querySelectorAll('[data-nota]')];
+    const lanjut = semua[semua.indexOf(inp) + 1];
+    if (lanjut) lanjut.focus(); else inp.blur();
+  });
+
+  function keteranganNota(i) {
+    if (i.nota_dibuat) return i.no_nota ? `Nota ${i.no_nota}` : 'Nota sudah dibuat';
+    return i.no_nota ? `Nota pending · nomor lama ${i.no_nota}` : 'Nota pending';
   }
 
   /** Order lengkap: rincian, catatan, lalu Ubah / Hapus. */
@@ -266,7 +463,8 @@ async function tabOrder(panel, ctx) {
       </div>
       <div class="riwayat-isi detail-isi">
         <table>${item.map((i) => `<tr><td>${esc(i.barang_nama)}
-            <div class="ket">${esc(rincianItem(i))}</div></td>
+            <div class="ket">${esc(rincianItem(i))}</div>
+            <div class="ket ket-nota${i.nota_dibuat ? ' sudah' : ''}">${esc(keteranganNota(i))}</div></td>
             <td>${esc(rupiah(i.subtotal))}</td></tr>`).join('')}</table>
         ${p.catatan ? `<div class="ket catatan-cap">${ikon('catatan', 14)}${esc(p.catatan)}</div>` : ''}
         ${catatan.length ? `<div class="catatan-daftar">${catatan.map((c) => `
@@ -323,8 +521,10 @@ async function tabOrder(panel, ctx) {
     tr.classList.add('terpilih');
   });
   elHasil.addEventListener('dblclick', (e) => {
+    // dobel-klik di isian no nota = memblok teks, bukan membuka order
+    if (e.target.closest('[data-buka], .k-cek, .k-nota')) return;
     const tr = e.target.closest('tbody tr[data-pesanan]');
-    if (tr && !e.target.closest('[data-buka]')) bukaBaris(tr.dataset.pesanan);
+    if (tr) bukaBaris(tr.dataset.pesanan);
   });
 
   /**
@@ -338,10 +538,12 @@ async function tabOrder(panel, ctx) {
     const des = (v) => (v === null || v === undefined ? '' : String(v).replace('.', ','));
     const sel1 = (v) => String(v ?? '').replace(/[\t\r\n]+/g, ' ');
     const teks = [
-      ['Tanggal', 'Toko', 'Barang', 'Jumlah', 'Satuan', 'Harga', 'Jumlah Harga', 'No Order'],
+      ['Tanggal', 'Toko', 'Barang', 'Jumlah', 'Satuan', 'Harga', 'Jumlah Harga', 'No Order',
+       'Status Nota', 'No Nota'],
       ...tampil.map(({ p, i }) => [
         tglSel(p.tanggal), p.toko_nama, i.barang_nama, des(i.qty), i.satuan,
         des(i.harga), des(i.subtotal), p.no_pesanan,
+        i.nota_dibuat ? 'Sudah' : 'Pending', i.no_nota ?? '',
       ]),
     ].map((r) => r.map(sel1).join('\t')).join('\n');
     try {
@@ -359,6 +561,18 @@ async function tabOrder(panel, ctx) {
   inD2.addEventListener('change', () => segarkan());
   sel.addEventListener('change', () => segarkan());
   inCari.addEventListener('input', () => gambarTabel());
+  panel.querySelector('#f-status').addEventListener('click', (e) => {
+    const b = e.target.closest('[data-status]');
+    if (!b || b.dataset.status === status) return;
+    status = b.dataset.status;
+    tetapTampil = new Set();
+    panel.querySelectorAll('#f-status [data-status]').forEach((x) => {
+      const aktif = x === b;
+      x.classList.toggle('aktif', aktif);
+      x.setAttribute('aria-pressed', String(aktif));
+    });
+    gambarTabel();
+  });
 
   /**
    * Satu fungsi untuk dua tujuan.
@@ -366,6 +580,8 @@ async function tabOrder(panel, ctx) {
    *   'sheet' -> pemisah ","  tanpa sep=  + desimal titik  (Google Sheets)
    * Google Sheets tidak mengerti baris "sep=;", makanya berkas Excel
    * jatuh ke satu kolom di sana.
+   * Yang diunduh = yang sedang terlihat di lembar kerja (tanggal, sales,
+   * status nota, pencarian), dengan status & no nota terbaru dari server.
    */
   async function ekspor(tujuan, tombol) {
     const asli = tombol.innerHTML;   // innerHTML, bukan textContent: tombolnya berikon
@@ -376,18 +592,20 @@ async function tabOrder(panel, ctx) {
       const d2 = inD2.value || akhir;
       const q = {
         select: 'tanggal,no_pesanan,sales,toko,barang,satuan,jumlah,harga,' +
-                'harga_per_kg,total_kg,subtotal,catatan',
+                'harga_per_kg,total_kg,subtotal,catatan,item_id,nota_dibuat,no_nota',
         and: `(tanggal.gte.${d1},tanggal.lte.${d2})`,
         order: 'tanggal.desc,no_pesanan.desc,urut.asc',
         limit: 20000,
       };
       if (sel.value) q.sales_id = 'eq.' + sel.value;
-      const baris = await db.pilih('v_ekspor', q);
+      const idTampil = new Set(tampil.map(({ i }) => String(i.id)));
+      const baris = (await db.pilih('v_ekspor', q)).filter((r) => idTampil.has(String(r.item_id)));
       if (!baris.length) { pesan('Tidak ada data untuk diunduh.', 'salah'); return; }
 
       const kolom = ['Tanggal', 'No Order', 'Sales', 'Toko', 'Barang', 'Satuan',
                      'Jumlah', 'Harga Satuan', 'Harga per Kg', 'Total Kg',
-                     'Subtotal', 'Catatan'];
+                     'Subtotal', 'Catatan', 'Status Nota', 'No Nota'];
+      const st = (r) => (r.nota_dibuat ? 'Sudah' : 'Pending');
 
       let isi;
       if (tujuan === 'sheet') {
@@ -396,7 +614,7 @@ async function tabOrder(panel, ctx) {
         isi = keCSVSheet(kolom, baris.map((r) => [
           r.tanggal, r.no_pesanan, r.sales, r.toko, r.barang, r.satuan,
           n(r.jumlah), n(r.harga), n(r.harga_per_kg), n(r.total_kg),
-          n(r.subtotal), r.catatan || '',
+          n(r.subtotal), r.catatan || '', st(r), r.no_nota || '',
         ]));
       } else {
         // Excel Indonesia: desimal pakai koma
@@ -404,13 +622,14 @@ async function tabOrder(panel, ctx) {
         isi = keCSV(kolom, baris.map((r) => [
           r.tanggal, r.no_pesanan, r.sales, r.toko, r.barang, r.satuan,
           des(r.jumlah), des(r.harga), des(r.harga_per_kg), des(r.total_kg),
-          des(r.subtotal), r.catatan || '',
+          des(r.subtotal), r.catatan || '', st(r), r.no_nota || '',
         ]));
       }
 
       const nama = `order-${d1}-sd-${d2}${tujuan === 'sheet' ? '-sheet' : ''}.csv`;
       await unduh(nama, isi);
-      pesan(`${baris.length} baris diunduh.` +
+      const ket = { semua: '', pending: ' (Pending saja)', sudah: ' (Sudah saja)' }[status];
+      pesan(`${baris.length} baris diunduh${ket}.` +
             (tujuan === 'sheet' ? ' Buka Google Sheets → File → Import.' : ' Buka dengan Excel.'),
             'ok');
     } catch (err) {
@@ -432,12 +651,16 @@ async function tabOrder(panel, ctx) {
 /** Admin mengubah order. Hanya admin yang boleh. */
 function bukaUbahOrder(p, ctx, selesai) {
   const item = (p.pesanan_item || []).slice().sort((a, b) => a.urut - b.urut);
+  const nBernota = item.filter((i) => i.nota_dibuat).length;
 
   const tirai = lembar('Ubah order', `
     <div class="bantuan" style="margin:0 0 14px">
       Order <span class="kode">${esc(p.no_pesanan)}</span> ·
       ${esc(tanggalPendek(p.tanggal))} · sekarang ${esc(rupiah(p.total))}
     </div>
+    ${nBernota ? `<div class="peringatan"><b>${nBernota} barang sudah dibuat notanya</b>
+      Barang yang jumlah atau harganya diubah kembali Pending; nomor nota
+      lamanya tampil dicoret supaya notanya dibuat ulang.</div>` : ''}
     <div id="u-form"></div>
     <div style="height:14px"></div>
     <button type="button" class="btn" id="u-simpan">Simpan perubahan</button>`);

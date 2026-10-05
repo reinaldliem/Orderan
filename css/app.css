@@ -193,7 +193,7 @@ body.kb-open .bar, body.tanpa-bar .bar { display: none; }
 }
 
 /* ---------- Form ---------- */
-label.label {
+label.label, span.label {
   display: block; font-size: 11.5px; font-weight: 700;
   color: var(--tinta-2); margin-bottom: 6px;
   letter-spacing: .1em; text-transform: uppercase;
@@ -671,7 +671,10 @@ body.lebar #app, body.lebar .bar { max-width: 1280px; }
   display: grid; grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 10px; margin-bottom: 12px;
 }
-.saring-order > div:nth-child(n+3) { grid-column: 1 / -1; }   /* sales & cari selebar kartu */
+.saring-order > div:nth-child(n+3) { grid-column: 1 / -1; }   /* sales, status, cari selebar kartu */
+/* saringan status nota sejajar dengan isian di sebelahnya */
+.saring-order .saring { margin-top: 0; }
+.saring-order .saring button { min-height: var(--tap); }
 
 .aksi-order { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
 /* tombol kecil berdampingan di HP: dirapatkan supaya label tidak terlipat */
@@ -684,17 +687,18 @@ body.lebar #app, body.lebar .bar { max-width: 1280px; }
 }
 .info-segar.ada-baru { color: var(--tinta); }
 
-.ringkas.tiga { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
-.ringkas.tiga .sel:last-child { grid-column: 1 / -1; }
+.ringkas.empat { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+/* masih ada barang yang belum dibuat notanya: blok berganti warna "menunggu" */
+.ringkas .sel.ada-pending { background: var(--tunggu); }
+.ringkas .sel.ada-pending .lbl { color: var(--tunggu-muda); }
 
 .tanda-catatan { display: inline-flex; vertical-align: -2px; margin-left: 6px; color: var(--tunggu); }
 
 @media (min-width: 900px) {
-  .saring-order { grid-template-columns: 1fr 1fr 1fr 1.6fr; }
+  .saring-order { grid-template-columns: 1fr 1fr 1fr 1.4fr 1.6fr; }
   .saring-order > div:nth-child(n+3) { grid-column: auto; }
   .aksi-order { grid-template-columns: 1.3fr 1fr 1fr 1fr; }
-  .ringkas.tiga { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-  .ringkas.tiga .sel:last-child { grid-column: auto; }
+  .ringkas.empat { grid-template-columns: repeat(4, minmax(0, 1fr)); }
 }
 
 /* --- bingkai lembar kerja: menggulir sendiri, dua arah --- */
@@ -775,6 +779,68 @@ body.lebar #app, body.lebar .bar { max-width: 1280px; }
   text-decoration: underline; text-decoration-thickness: 2px; text-underline-offset: 3px;
 }
 
+/* barang yang sudah dibuat notanya: tinta tipis, supaya yang Pending menonjol */
+.sheet tbody tr.sudah td,
+.sheet tbody tr.sudah .buka-order { color: var(--tinta-2); }
+
+/* --- status nota: centang di ujung baris. Kolomnya MEMBEKU DI KANAN,
+   jadi di HP centangnya selalu terjangkau tanpa menggeser lembar. --- */
+.sheet .k-cek {
+  position: sticky; right: 0; z-index: 1;
+  padding-block: 0; padding-inline: 8px 10px;
+  background: var(--blok);
+  border-left: 2px solid var(--garis-kuat);
+}
+.sheet thead .k-cek,
+.sheet tfoot .k-cek { z-index: 3; background: var(--tinta); border-left-color: var(--tinta-2); }
+
+.cek-nota {
+  position: relative;
+  display: flex; align-items: center; gap: 8px;
+  min-height: 34px; cursor: pointer; user-select: none;
+  font-size: 11px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase;
+  color: var(--tunggu);
+}
+/* kotak centang asli tetap ada (bisa difokus & dibacakan) tapi tak terlihat,
+   dan menutupi seluruh label: seluruh sel bisa diketuk */
+.cek-nota input {
+  position: absolute; inset: 0; width: 100%; height: 100%;
+  margin: 0; opacity: 0; cursor: pointer;
+}
+/* Pending = kotak bergaris putus-putus warna "menunggu" (sama dengan tanda usulan);
+   Sudah = blok tinta penuh bercentang. Bentuknya beda, bukan hanya warnanya. */
+.cek-nota .kotak {
+  display: grid; place-items: center; flex: 0 0 auto;
+  width: 22px; height: 22px;
+  border: 2px dashed var(--tunggu); background: var(--blok); color: transparent;
+  transition: transform .12s var(--tekan);
+}
+.cek-nota .kotak svg { width: 16px; height: 16px; }
+.cek-nota input:checked + .kotak {
+  border-style: solid; border-color: var(--tinta);
+  background: var(--tinta); color: var(--blok);
+}
+.cek-nota input:checked ~ .teks { color: var(--tinta); }
+.cek-nota input:focus-visible + .kotak { outline: 3px solid var(--tinta); outline-offset: 2px; }
+.cek-nota input:disabled ~ * { opacity: .45; }
+.cek-nota:active .kotak { transform: scale(.92); }
+
+/* --- no nota: sel isian, admin menempel nomor dari program nota utama --- */
+.sheet .k-nota { padding: 3px 6px; }
+.sheet .isi-nota {
+  width: 11em; min-height: 34px; padding: 4px 8px;
+  font-size: 16px;                 /* WAJIB 16px: cegah zoom otomatis iOS */
+  font-weight: 700; letter-spacing: .02em;
+  border: 2px solid var(--garis); background: var(--blok);
+}
+.sheet .isi-nota:focus { border-color: var(--tinta); background: var(--blok-fokus); }
+/* nomor nota lama pada barang yang diubah: dicoret, seperti tanda "mati" */
+.sheet .isi-nota.basi {
+  color: var(--sinyal);
+  text-decoration: line-through; text-decoration-thickness: 2px;
+}
+.sheet .k-nota.tersimpan .isi-nota { border-color: var(--tinta); background: var(--kraft-tua); }
+
 /* baris total: selalu terlihat di dasar bingkai, seperti bilah status */
 .sheet tfoot td {
   position: sticky; bottom: 0; z-index: 2;
@@ -787,6 +853,13 @@ body.lebar #app, body.lebar .bar { max-width: 1280px; }
 @media (pointer: coarse) {
   .sheet td { padding-block: 10px; }
   .buka-order { min-height: 44px; margin-block: -10px; }
+  .cek-nota, .sheet .isi-nota { min-height: 44px; }
+}
+/* HP: kolom centang yang membeku cukup kotaknya saja, supaya lembar
+   tetap lega; kata Sudah/Pending sudah dibacakan lewat aria-label. */
+@media (max-width: 599px) {
+  .cek-nota .teks { display: none; }
+  .sheet .k-cek { padding-inline: 11px; }
 }
 
 /* Lembar rincian order (ketuk satu baris) */
@@ -795,6 +868,8 @@ body.lebar #app, body.lebar .bar { max-width: 1280px; }
   text-transform: uppercase; letter-spacing: .01em; overflow-wrap: anywhere;
 }
 .detail-isi { border: 2px solid var(--tinta); margin: 12px 0; }
+.detail-isi .ket.ket-nota { font-weight: 700; color: var(--tunggu); }
+.detail-isi .ket.ket-nota.sudah { color: var(--tinta); }
 
 /* ---------- Gerak dikurangi ---------- */
 @media (prefers-reduced-motion: reduce) {
