@@ -727,6 +727,42 @@ body.lebar #app, body.lebar .bar { max-width: 1280px; }
 .ringkas .sel.ada-pending .lbl { color: var(--tunggu-muda); }
 
 .tanda-catatan { display: inline-flex; vertical-align: -2px; margin-left: 6px; color: var(--tunggu); }
+/* catatan dari sales yang BELUM dibaca admin: ikonnya diblok, bukan sekadar diwarnai */
+.tanda-catatan.baru { color: var(--blok); background: var(--tunggu); padding: 1px 2px; }
+
+/* ============================================================
+   KOTAK MASUK CATATAN (admin)
+   ============================================================ */
+/* Lencana: jumlah catatan yang belum dibaca, di menu Admin & tab Catatan.
+   Satu-satunya pemakaian merah oksida di luar "bahaya": angka notifikasi
+   merah adalah konvensi yang langsung dikenali semua orang. */
+.lencana {
+  display: inline-grid; place-items: center;
+  min-width: 20px; height: 20px; padding: 0 5px;
+  background: var(--sinyal); color: var(--blok);
+  font-size: 11px; font-weight: 800; line-height: 1; letter-spacing: 0;
+  font-variant-numeric: tabular-nums; border-radius: 0;
+}
+.bar a .lencana { position: absolute; top: 7px; left: calc(50% + 7px); }
+.tab button .lencana { margin-left: 6px; }
+
+.catatan-baris.baru { border-color: var(--tunggu); background: var(--tunggu-muda); }
+.catatan-baris .siapa .tanda { margin-right: 6px; padding: 1px 6px; }
+
+.kotak-masuk.ada-baru { border-left: 6px solid var(--tunggu); }
+.km-kepala { padding: 14px 15px; }
+.km-kepala .toko {
+  display: block; font-family: var(--stensil); font-weight: 400;
+  font-size: 20px; line-height: 1.08; text-transform: uppercase; overflow-wrap: anywhere;
+}
+.km-kepala .meta {
+  margin-top: 6px; display: flex; flex-wrap: wrap; gap: 8px;
+  font-size: 11px; font-weight: 700; letter-spacing: .09em; text-transform: uppercase;
+  color: var(--tinta-2);
+}
+.kotak-masuk .catatan-daftar { margin: 0 0 12px; }
+.km-barang .km-total td { font-weight: 800; border-top: 2px solid var(--tinta); }
+.kotak-masuk .tombol-baris { margin-top: 12px; }
 
 @media (min-width: 900px) {
   .saring-order { grid-template-columns: 1fr 1fr 1fr 1.4fr 1.6fr; }

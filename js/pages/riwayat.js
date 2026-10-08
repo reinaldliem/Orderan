@@ -15,7 +15,7 @@ const PILIH_KOLOM =
   'id,no_pesanan,tanggal,toko_id,toko_nama,catatan,total,' +
   'pesanan_item(urut,barang_id,barang_nama,satuan,qty,harga,harga_per_kg,berat_kg,subtotal,' +
   'nota_dibuat,no_nota),' +
-  'pesanan_catatan(id,teks,dibuat_pada)';
+  'pesanan_catatan(id,teks,dibuat_pada,dibaca_pada)';
 
 // Dibuka di HARIAN (pemilik): setiap hari baru riwayat mulai kosong lagi;
 // order sebelumnya tetap bisa dilihat lewat tombol mundur / Mingguan / Bulanan.
@@ -288,7 +288,8 @@ function kartuOrder(p) {
 
       ${catatan.length ? `<div class="catatan-daftar">${catatan
         .map((c) => `<div class="catatan-baris">${esc(c.teks)}
-          <span class="siapa">Catatan tambahan · ${esc(tanggalPendek(String(c.dibuat_pada).slice(0, 10)))}</span>
+          <span class="siapa">Catatan tambahan · ${esc(tanggalPendek(String(c.dibuat_pada).slice(0, 10)))} · ${
+            c.dibaca_pada ? 'sudah dibaca admin' : 'belum dibaca admin'}</span>
         </div>`).join('')}</div>` : ''}
 
       <button type="button" class="btn abu kecil" data-catatan="${esc(p.id)}"
@@ -306,10 +307,11 @@ function bukaTambahCatatan(p, selesai) {
   const tirai = lembar('Tambah catatan', `
     <div class="bantuan" style="margin:0 0 12px">
       Untuk order <span class="kode">${esc(p.no_pesanan)}</span> — ${esc(p.toko_nama)}.
-      Catatan hanya bisa <b>ditambah</b>, tidak bisa dihapus.
+      Admin langsung mendapat pemberitahuan. Catatan hanya bisa <b>ditambah</b>,
+      tidak bisa dihapus.
     </div>
     <textarea id="c-teks" maxlength="500"
-      placeholder="Contoh: minta kirim sore · jumlah semen seharusnya 25 sak"></textarea>
+      placeholder="Contoh: harga semen minta jadi Rp 52.000 · jumlah semen seharusnya 25 sak"></textarea>
     <div class="bantuan" id="c-sisa">500 huruf tersisa</div>
     <div style="height:14px"></div>
     <button type="button" class="btn" id="c-simpan">Simpan catatan</button>`);
@@ -328,7 +330,7 @@ function bukaTambahCatatan(p, selesai) {
     b.disabled = true; b.textContent = 'Menyimpan…';
     try {
       await db.rpc('tambah_catatan', { p_pesanan_id: p.id, p_teks: teks });
-      pesan('Catatan ditambahkan.', 'ok');
+      pesan('Catatan terkirim ke admin.', 'ok');
       tirai.remove();
       await selesai();
     } catch (err) {

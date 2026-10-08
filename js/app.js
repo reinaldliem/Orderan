@@ -122,7 +122,8 @@ function gambarKerangka(kunci) {
       ${menu
         .map(
           ([k, v]) => `<a href="#/${k}" class="${k === kunci ? 'aktif' : ''}">
-              ${ikon(v.ikon, 21)}<span>${esc(v.label)}</span></a>`
+              ${ikon(v.ikon, 21)}<span>${esc(v.label)}</span>${
+              k === 'admin' ? '<span class="lencana" data-lencana="catatan" hidden></span>' : ''}</a>`
         )
         .join('')}
     </nav>`;
@@ -138,6 +139,7 @@ async function keluarSekarang() {
   if (!(await tanya('Keluar dari aplikasi?',
     'Anda perlu memasukkan username dan PIN lagi untuk masuk.', 'Ya, keluar'))) return;
   await db.keluar();
+  lupakanLencana();
   hapusMasterLokal();
   status.profil = null;
   location.hash = '';
@@ -161,8 +163,9 @@ async function gambarHalaman() {
     const isi = gambarKerangka(kunci);
     isi.innerHTML = `<div class="memuat"><div class="putar"></div>Memuat…</div>`;
 
+    pasangLencana();
     const modul = await import(h.modul);
-    await modul.gambar(isi, { status, segarkanMaster, hapusMasterLokal });
+    await modul.gambar(isi, { status, segarkanMaster, hapusMasterLokal, segarkanLencana });
   } catch (e) {
     console.error(e);
     pesan(e.message || 'Terjadi kesalahan.', 'salah');
@@ -180,6 +183,47 @@ async function gambarHalaman() {
 }
 
 // ------------------------------------------------------------
+// Kotak masuk catatan (admin)
+//
+// Sales menambah catatan pada order (mis. minta revisi harga) -> admin
+// melihat angka merah di menu Admin dan tab Catatan, plus pemberitahuan
+// singkat saat angkanya bertambah. Diperbarui tiap menit & saat aplikasi
+// dibuka lagi. Bukan admin: tidak pernah bertanya ke server.
+// ------------------------------------------------------------
+let jmlCatatanBaru = 0;
+let lencanaPernahDiisi = false;
+
+function pasangLencana() {
+  document.querySelectorAll('[data-lencana="catatan"]').forEach((el) => {
+    el.textContent = jmlCatatanBaru > 99 ? '99+' : String(jmlCatatanBaru);
+    el.hidden = jmlCatatanBaru === 0;
+  });
+}
+
+export async function segarkanLencana() {
+  if (status.profil?.peran !== 'admin') return;
+  let n;
+  try {
+    n = Number(await db.rpc('jml_catatan_baru')) || 0;
+  } catch {
+    return;   // tanpa internet: angka lama dibiarkan
+  }
+  if (lencanaPernahDiisi && n > jmlCatatanBaru) {
+    const tambah = n - jmlCatatanBaru;
+    pesan(`${tambah} catatan baru dari sales. Lihat di Admin → Catatan.`, 'ok');
+  }
+  jmlCatatanBaru = n;
+  lencanaPernahDiisi = true;
+  pasangLencana();
+}
+
+/** Keluar: angka & ingatan pemberitahuan dibuang, supaya akun berikutnya mulai bersih. */
+function lupakanLencana() {
+  jmlCatatanBaru = 0;
+  lencanaPernahDiisi = false;
+}
+
+// ------------------------------------------------------------
 // Halaman login
 // ------------------------------------------------------------
 async function gambarLogin() {
@@ -191,7 +235,8 @@ async function gambarLogin() {
       status.profil = pr;
       await segarkanMaster({ paksa: true });
       if (!location.hash) location.hash = '#/order';
-      gambarHalaman();
+      await gambarHalaman();
+      segarkanLencana();
     },
   });
 }
@@ -224,11 +269,15 @@ async function cekSesi() {
     // adaSesi() sekaligus memeriksa batas 12 jam & 30 menit tidak berjalan.
     if (db.adaSesi()) {
       db.tandaHidup();                          // halaman ini sedang berjalan
-      if (await db.cekPerangkat()) return;      // dan server masih mengakui sesinya
+      if (await db.cekPerangkat()) {            // dan server masih mengakui sesinya
+        segarkanLencana();                      // sekalian: ada catatan baru dari sales?
+        return;
+      }
     }
     if (!status.profil) return;                 // sudah keluar lewat jalan lain
 
     const alasan = db.sesiHabis();
+    lupakanLencana();
     hapusMasterLokal();
     status.profil = null;
     location.hash = '';
@@ -308,6 +357,7 @@ async function mulai() {
   if (!location.hash) location.hash = '#/order';
   await gambarHalaman();
   segarkanMaster().catch(() => {});
+  segarkanLencana();
 }
 
 window.addEventListener('hashchange', () => {
