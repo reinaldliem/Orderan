@@ -89,9 +89,12 @@ export function hapusMasterLokal() {
 // ------------------------------------------------------------
 // Kerangka halaman
 // ------------------------------------------------------------
+// adminSaja = hanya admin. bukanAdmin = disembunyikan untuk admin (pemilik:
+// admin sudah melihat SEMUA order di Admin → Order, jadi Riwayat tidak perlu;
+// halaman Order untuk membuat order tetap ada).
 const HALAMAN = {
   order:   { judul: 'Buat Order', ikon: 'nota',    label: 'Order',   modul: './pages/order.js' },
-  riwayat: { judul: 'Order Saya', ikon: 'riwayat', label: 'Riwayat', modul: './pages/riwayat.js' },
+  riwayat: { judul: 'Order Saya', ikon: 'riwayat', label: 'Riwayat', modul: './pages/riwayat.js', bukanAdmin: true },
   admin:   { judul: 'Admin',      ikon: 'admin',   label: 'Admin',   modul: './pages/admin.js', adminSaja: true },
 };
 
@@ -103,7 +106,8 @@ function rutaSekarang() {
 function gambarKerangka(kunci) {
   const h = HALAMAN[kunci];
   const adminkah = status.profil?.peran === 'admin';
-  const menu = Object.entries(HALAMAN).filter(([, v]) => !v.adminSaja || adminkah);
+  const menu = Object.entries(HALAMAN)
+    .filter(([, v]) => (adminkah ? !v.bukanAdmin : !v.adminSaja));
   const pr = status.profil;
 
   app.innerHTML = `
@@ -159,6 +163,10 @@ async function gambarHalaman() {
 
     if (h.adminSaja && status.profil?.peran !== 'admin') {
       location.hash = '#/order';
+      return;
+    }
+    if (h.bukanAdmin && status.profil?.peran === 'admin') {
+      location.hash = '#/admin';   // mis. dari tautan lama / tombol "Lihat order saya"
       return;
     }
 

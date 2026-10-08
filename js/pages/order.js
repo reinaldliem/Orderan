@@ -104,6 +104,8 @@ function bacaDraf(tgl, uid) {
 }
 
 function tampilkanBerhasil(isi, hasil, ctx) {
+  // Admin tidak punya halaman Riwayat: ordernya terlihat di Admin → Order.
+  const adminkah = ctx.status?.profil?.peran === 'admin';
   // Order yang selesai dicap, bukan diberi tanda centang hijau raksasa:
   // nomornya distensil besar, totalnya duduk di blok terbalik.
   isi.innerHTML = `
@@ -116,7 +118,9 @@ function tampilkanBerhasil(isi, hasil, ctx) {
       </div>
       <button type="button" class="btn" id="btn-lagi">${ikon('tambah', 20)}Buat order lagi</button>
       <div style="height:10px"></div>
-      <a class="btn abu" href="#/riwayat">Lihat order saya</a>
+      ${adminkah
+        ? '<a class="btn abu" href="#/admin">Lihat di meja order</a>'
+        : '<a class="btn abu" href="#/riwayat">Lihat order saya</a>'}
     </div>`;
 
   isi.querySelector('#btn-lagi').addEventListener('click', () => gambar(isi, ctx));
