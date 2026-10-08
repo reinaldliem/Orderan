@@ -425,6 +425,24 @@ program nota pemilik — admin menempelnya, website tidak pernah membuatnya.
 - **Catatan tambahan dari sales** ditandai ikon `catatan` kuning tanah di
   sebelah nama toko.
 
+### Riwayat sales (Order Saya)
+Sales melihat order miliknya sendiri dan status notanya (hanya membaca;
+status diisi admin di Meja Order).
+- **Saringan dalam satu kartu:** Mingguan / Bulanan (`.saring`), baris
+  periode `‹ OKTOBER 2026 ›` (tombol 44px, judul Anton 20px, keterangan
+  kecil "Bulan ini · diperbarui 13.59"), lalu Semua / Pending / Sudah.
+  Minggu = Senin–Minggu. Tombol maju mati di periode sekarang.
+- **Ringkasan tiga blok:** Order · Pending nota (ladang `tunggu` selama
+  masih ada) · Nilai order selebar kartu.
+- **Tanda status per order** di baris meta kartu — bentuk, bukan hanya
+  warna: putus-putus `tunggu` = PENDING, garis penuh `tunggu` = NOTA 1/3
+  (sebagian barang), blok tinta = SUDAH NOTA. Order sebagian ikut saringan
+  Pending.
+- **Per barang** di rincian: "Nota FJ-0460" (tinta) atau "Nota pending"
+  (`tunggu`). Nomor nota lama pada barang yang diubah tidak ditampilkan ke
+  sales.
+- Data diambil ulang setiap aplikasi dibuka lagi (status bisa berubah).
+
 ### Cap Tersimpan (signature)
 Kotak bergaris tinta 3px berisi ikon centang dan kata TERSIMPAN,
 diputar −1,5°, diikuti nomor order Anton 40px. Menggantikan tanda

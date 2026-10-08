@@ -491,6 +491,37 @@ body.kb-open .btn.blok-bawah, body.tanpa-bar .btn.blok-bawah { bottom: 12px; }
 .tanda.usul  { border-style: dashed; color: var(--tunggu); border-color: var(--tunggu); }
 .tanda.mati  { color: var(--sinyal); border-color: var(--sinyal); text-decoration: line-through; }
 .tanda.admin { background: var(--tinta); border-color: var(--tinta); color: var(--blok); }
+/* Status nota satu order di Riwayat sales: putus-putus = belum, garis penuh =
+   sebagian barang, blok tinta = semua barang sudah dibuatkan nota. */
+.tanda.nota-pending  { border-style: dashed; color: var(--tunggu); border-color: var(--tunggu); }
+.tanda.nota-sebagian { color: var(--tunggu); border-color: var(--tunggu); }
+.tanda.nota-sudah    { background: var(--tinta); border-color: var(--tinta); color: var(--blok); }
+
+/* ---------- Riwayat sales: saringan periode & status ---------- */
+.saring-riwayat { display: grid; gap: 10px; margin-bottom: 12px; }
+.saring-riwayat .saring { margin-top: 0; }
+.periode {
+  display: grid; grid-template-columns: 44px minmax(0, 1fr) 44px;
+  align-items: center; gap: 8px;
+}
+.periode .geser {
+  width: 44px; height: 44px; display: grid; place-items: center;
+  background: none; border: 2px solid var(--garis-kuat); border-radius: 0;
+  color: var(--tinta); cursor: pointer;
+  transition: transform .12s var(--tekan);
+}
+.periode .geser:active:not(:disabled) { transform: scale(.94); }
+.periode .geser:disabled { opacity: .35; cursor: default; }
+.periode-teks { text-align: center; min-width: 0; }
+.periode-teks b {
+  display: block; font-family: var(--stensil); font-weight: 400;
+  font-size: 20px; line-height: 1.08; text-transform: uppercase; overflow-wrap: anywhere;
+}
+.periode-teks span {
+  display: block; margin-top: 4px;
+  font-size: 11px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase;
+  color: var(--tinta-2);
+}
 
 /* ---------- Catatan tambahan dari sales ---------- */
 .catatan-daftar { display: grid; gap: 8px; margin-top: 12px; }
@@ -688,6 +719,9 @@ body.lebar #app, body.lebar .bar { max-width: 1280px; }
 .info-segar.ada-baru { color: var(--tinta); }
 
 .ringkas.empat { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+/* tiga blok (Riwayat sales): dua angka berdampingan, nilai rupiah selebar kartu */
+.ringkas.tiga { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.ringkas.tiga .sel:last-child { grid-column: 1 / -1; }
 /* masih ada barang yang belum dibuat notanya: blok berganti warna "menunggu" */
 .ringkas .sel.ada-pending { background: var(--tunggu); }
 .ringkas .sel.ada-pending .lbl { color: var(--tunggu-muda); }
@@ -868,8 +902,9 @@ body.lebar #app, body.lebar .bar { max-width: 1280px; }
   text-transform: uppercase; letter-spacing: .01em; overflow-wrap: anywhere;
 }
 .detail-isi { border: 2px solid var(--tinta); margin: 12px 0; }
-.detail-isi .ket.ket-nota { font-weight: 700; color: var(--tunggu); }
-.detail-isi .ket.ket-nota.sudah { color: var(--tinta); }
+/* status nota per barang — rincian order di Admin maupun di Riwayat sales */
+.riwayat-isi .ket.ket-nota { font-weight: 700; color: var(--tunggu); }
+.riwayat-isi .ket.ket-nota.sudah { color: var(--tinta); }
 
 /* ---------- Gerak dikurangi ---------- */
 @media (prefers-reduced-motion: reduce) {
