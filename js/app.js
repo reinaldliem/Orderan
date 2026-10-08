@@ -4,6 +4,7 @@ import { BELUM_DISETEL } from './config.js';
 import * as db from './db.js';
 import { ikon } from './ikon.js';
 import { esc, pesan } from './util.js';
+import * as notif from './notifikasi.js';
 
 const app = document.getElementById('app');
 
@@ -114,6 +115,7 @@ function gambarKerangka(kunci) {
         }</div>
       </div>
       <div class="kanan">
+        ${adminkah ? notif.tombolLonceng() : ''}
         <button type="button" class="btn-atas" id="btn-keluar">${ikon('keluar', 17)}Keluar</button>
       </div>
     </header>
@@ -122,8 +124,7 @@ function gambarKerangka(kunci) {
       ${menu
         .map(
           ([k, v]) => `<a href="#/${k}" class="${k === kunci ? 'aktif' : ''}">
-              ${ikon(v.ikon, 21)}<span>${esc(v.label)}</span>${
-              k === 'admin' ? '<span class="lencana" data-lencana="catatan" hidden></span>' : ''}</a>`
+              ${ikon(v.ikon, 21)}<span>${esc(v.label)}</span></a>`
         )
         .join('')}
     </nav>`;
@@ -131,6 +132,7 @@ function gambarKerangka(kunci) {
   // Lebar 1280px hanya untuk tab Order di Admin; admin.js memasangnya lagi.
   document.body.classList.remove('tanpa-bar', 'lebar');
   document.getElementById('btn-keluar').addEventListener('click', keluarSekarang);
+  notif.pasangLonceng(document.getElementById('btn-lonceng'));
   return document.getElementById('isi');
 }
 
@@ -163,7 +165,6 @@ async function gambarHalaman() {
     const isi = gambarKerangka(kunci);
     isi.innerHTML = `<div class="memuat"><div class="putar"></div>Memuat…</div>`;
 
-    pasangLencana();
     const modul = await import(h.modul);
     await modul.gambar(isi, { status, segarkanMaster, hapusMasterLokal, segarkanLencana });
   } catch (e) {
@@ -183,44 +184,15 @@ async function gambarHalaman() {
 }
 
 // ------------------------------------------------------------
-// Kotak masuk catatan (admin)
-//
-// Sales menambah catatan pada order (mis. minta revisi harga) -> admin
-// melihat angka merah di menu Admin dan tab Catatan, plus pemberitahuan
-// singkat saat angkanya bertambah. Diperbarui tiap menit & saat aplikasi
-// dibuka lagi. Bukan admin: tidak pernah bertanya ke server.
+// Lonceng notifikasi catatan dari sales (admin saja) — lihat notifikasi.js.
+// Bukan admin: tidak pernah bertanya ke server.
 // ------------------------------------------------------------
-let jmlCatatanBaru = 0;
-let lencanaPernahDiisi = false;
-
-function pasangLencana() {
-  document.querySelectorAll('[data-lencana="catatan"]').forEach((el) => {
-    el.textContent = jmlCatatanBaru > 99 ? '99+' : String(jmlCatatanBaru);
-    el.hidden = jmlCatatanBaru === 0;
-  });
+function segarkanLencana() {
+  if (status.profil?.peran === 'admin') return notif.segarkan();
 }
 
-export async function segarkanLencana() {
-  if (status.profil?.peran !== 'admin') return;
-  let n;
-  try {
-    n = Number(await db.rpc('jml_catatan_baru')) || 0;
-  } catch {
-    return;   // tanpa internet: angka lama dibiarkan
-  }
-  if (lencanaPernahDiisi && n > jmlCatatanBaru) {
-    const tambah = n - jmlCatatanBaru;
-    pesan(`${tambah} catatan baru dari sales. Lihat di Admin → Catatan.`, 'ok');
-  }
-  jmlCatatanBaru = n;
-  lencanaPernahDiisi = true;
-  pasangLencana();
-}
-
-/** Keluar: angka & ingatan pemberitahuan dibuang, supaya akun berikutnya mulai bersih. */
 function lupakanLencana() {
-  jmlCatatanBaru = 0;
-  lencanaPernahDiisi = false;
+  notif.lupakan();
 }
 
 // ------------------------------------------------------------

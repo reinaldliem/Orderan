@@ -731,9 +731,9 @@ body.lebar #app, body.lebar .bar { max-width: 1280px; }
 .tanda-catatan.baru { color: var(--blok); background: var(--tunggu); padding: 1px 2px; }
 
 /* ============================================================
-   KOTAK MASUK CATATAN (admin)
+   LONCENG NOTIFIKASI (admin) — catatan tambahan dari sales
    ============================================================ */
-/* Lencana: jumlah catatan yang belum dibaca, di menu Admin & tab Catatan.
+/* Lencana: jumlah catatan yang belum dibaca, menempel di lonceng.
    Satu-satunya pemakaian merah oksida di luar "bahaya": angka notifikasi
    merah adalah konvensi yang langsung dikenali semua orang. */
 .lencana {
@@ -743,26 +743,58 @@ body.lebar #app, body.lebar .bar { max-width: 1280px; }
   font-size: 11px; font-weight: 800; line-height: 1; letter-spacing: 0;
   font-variant-numeric: tabular-nums; border-radius: 0;
 }
-.bar a .lencana { position: absolute; top: 7px; left: calc(50% + 7px); }
-.tab button .lencana { margin-left: 6px; }
+.lonceng { position: relative; min-width: 44px; min-height: 40px; padding: 8px 10px; }
+.lonceng .lencana { position: absolute; top: -9px; right: -9px; }
 
+/* Panel daftar: menggantung di bawah header, rata kanan. */
+.panel-notif {
+  position: fixed; z-index: 45;
+  width: min(380px, calc(100vw - 24px));
+  max-height: min(70vh, 520px); overflow: auto;
+  background: var(--kraft-muda); color: var(--tinta);
+  border: 3px solid var(--tinta);
+}
+.pn-kepala {
+  position: sticky; top: 0;
+  display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  padding: 6px 8px 6px 12px; background: var(--tinta); color: var(--blok);
+}
+.pn-kepala b { font-size: 11.5px; letter-spacing: .12em; text-transform: uppercase; }
+.pn-semua {
+  min-height: 36px; padding: 0 6px; cursor: pointer;
+  background: none; border: 0; color: var(--blok);
+  font: inherit; font-size: 12px; font-weight: 700;
+  text-decoration: underline; text-underline-offset: 3px;
+}
+.pn-item {
+  position: relative; display: grid; gap: 3px; width: 100%;
+  padding: 11px 12px 11px 28px; text-align: left; cursor: pointer;
+  background: none; border: 0; border-bottom: 1px solid var(--garis);
+  font: inherit; color: var(--tinta);
+}
+/* titik "belum dibaca" — persegi, seperti semua bentuk di sini */
+.pn-item::before {
+  content: ''; position: absolute; left: 12px; top: 16px;
+  width: 8px; height: 8px; background: var(--sinyal);
+}
+.pn-item:active { background: var(--kraft-tua); }
+.pn-siapa {
+  font-size: 11px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase;
+  color: var(--tinta-2); overflow-wrap: anywhere;
+}
+.pn-teks {
+  font-size: 14px; line-height: 1.4; overflow-wrap: anywhere;
+  display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden;
+}
+.pn-waktu { font-size: 11px; font-weight: 600; color: var(--tinta-2); }
+.pn-kosong { padding: 22px 14px; text-align: center; font-size: 13.5px; color: var(--tinta-2); }
+@media (hover: hover) and (pointer: fine) {
+  .pn-item:hover { background: var(--kraft-tua); }
+}
+
+/* catatan yang belum dibaca di rincian order */
 .catatan-baris.baru { border-color: var(--tunggu); background: var(--tunggu-muda); }
 .catatan-baris .siapa .tanda { margin-right: 6px; padding: 1px 6px; }
-
-.kotak-masuk.ada-baru { border-left: 6px solid var(--tunggu); }
-.km-kepala { padding: 14px 15px; }
-.km-kepala .toko {
-  display: block; font-family: var(--stensil); font-weight: 400;
-  font-size: 20px; line-height: 1.08; text-transform: uppercase; overflow-wrap: anywhere;
-}
-.km-kepala .meta {
-  margin-top: 6px; display: flex; flex-wrap: wrap; gap: 8px;
-  font-size: 11px; font-weight: 700; letter-spacing: .09em; text-transform: uppercase;
-  color: var(--tinta-2);
-}
-.kotak-masuk .catatan-daftar { margin: 0 0 12px; }
-.km-barang .km-total td { font-weight: 800; border-top: 2px solid var(--tinta); }
-.kotak-masuk .tombol-baris { margin-top: 12px; }
 
 @media (min-width: 900px) {
   .saring-order { grid-template-columns: 1fr 1fr 1fr 1.4fr 1.6fr; }

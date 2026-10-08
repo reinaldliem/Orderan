@@ -10,13 +10,12 @@ import {
 } from '../util.js';
 
 let tabAktif = 'order';
+let bukaOrderNanti = null;   // id order yang diminta lonceng notifikasi
 
 export async function gambar(isi, ctx) {
   isi.innerHTML = `
     <div class="tab" id="tab">
       <button type="button" data-t="order">${ikon('nota', 17)}Order</button>
-      <button type="button" data-t="catatan">${ikon('catatan', 17)}Catatan<span
-        class="lencana" data-lencana="catatan" hidden></span></button>
       <button type="button" data-t="toko">${ikon('toko', 17)}Toko</button>
       <button type="button" data-t="barang">${ikon('barang', 17)}Barang</button>
       <button type="button" data-t="akun">${ikon('akun', 17)}Akun</button>
@@ -24,7 +23,15 @@ export async function gambar(isi, ctx) {
     <div id="panel"></div>`;
 
   const panel = isi.querySelector('#panel');
-  ctx.segarkanLencana?.();   // isi angka catatan baru di tab Catatan
+
+  // Datang dari lonceng notifikasi: #/admin/order/<id> -> buka order itu.
+  // Alamatnya langsung dirapikan supaya muat ulang tidak membukanya lagi.
+  const dariLonceng = /^#\/admin\/order\/(\d+)/.exec(location.hash);
+  if (dariLonceng) {
+    tabAktif = 'order';
+    bukaOrderNanti = Number(dariLonceng[1]);
+    history.replaceState(null, '', '#/admin');
+  }
 
   isi.querySelector('#tab').addEventListener('click', (e) => {
     const b = e.target.closest('[data-t]');
@@ -50,9 +57,7 @@ function pilihTab(panel, isi, ctx) {
   wadah.innerHTML = `<div class="memuat"><div class="putar"></div>Memuat…</div>`;
   panel.replaceChildren(wadah);
 
-  const jalan = {
-    order: tabOrder, catatan: tabCatatan, toko: tabToko, barang: tabBarang, akun: tabAkun,
-  }[tabAktif];
+  const jalan = { order: tabOrder, toko: tabToko, barang: tabBarang, akun: tabAkun }[tabAktif];
   jalan(wadah, ctx).catch((e) => {
     console.error(e);
     wadah.innerHTML = `<div class="kosong-pesan"><span class="ikon">${ikon('peringatan', 40)}</span>${esc(e.message || 'Gagal memuat.')}</div>`;
@@ -127,15 +132,18 @@ async function tabOrder(panel, ctx) {
   let tetapTampil = new Set();
   const menyimpan = new Map(); // id barang -> no nota yang sedang dikirim
 
+  const KOLOM_ORDER =
+    'id,no_pesanan,tanggal,sales_id,toko_id,toko_nama,catatan,total,' +
+    'pesanan_item(id,urut,barang_id,barang_nama,satuan,qty,harga,harga_per_kg,berat_kg,subtotal,' +
+    'nota_dibuat,no_nota,nota_pada),' +
+    'pesanan_catatan(id,teks,dibuat_pada,dibaca_pada)';
+
   async function tarik() {
     const d1 = inD1.value || awal;
     const d2 = inD2.value || akhir;
     // dua syarat pada kolom yang sama -> pakai penyaring "and"
     const q = {
-      select: 'id,no_pesanan,tanggal,sales_id,toko_id,toko_nama,catatan,total,' +
-              'pesanan_item(id,urut,barang_id,barang_nama,satuan,qty,harga,harga_per_kg,berat_kg,subtotal,' +
-              'nota_dibuat,no_nota,nota_pada),' +
-              'pesanan_catatan(id,teks,dibuat_pada,dibaca_pada)',
+      select: KOLOM_ORDER,
       and: `(tanggal.gte.${d1},tanggal.lte.${d2})`,
       order: 'tanggal.desc,id.desc',
       limit: BATAS_ORDER,
@@ -675,10 +683,25 @@ async function tabOrder(panel, ctx) {
     (e) => ekspor('sheet', e.currentTarget));
 
   await segarkan();
+
+  // Diminta lonceng notifikasi: buka order itu. Kalau di luar rentang tanggal
+  // yang tampil, ambil sendiri.
+  if (bukaOrderNanti) {
+    const id = bukaOrderNanti;
+    bukaOrderNanti = null;
+    let p = pesanan.find((x) => Number(x.id) === id);
+    if (!p) {
+      try {
+        p = (await db.pilih('pesanan', { select: KOLOM_ORDER, id: 'eq.' + id }))[0];
+      } catch { /* ditangani di bawah */ }
+    }
+    if (p) bukaDetail(p);
+    else pesan('Order itu tidak ditemukan — mungkin sudah dihapus.', 'salah');
+  }
 }
 
 /* ============================================================
-   CATATAN TAMBAHAN DARI SALES — dipakai rincian order & kotak masuk
+   CATATAN TAMBAHAN DARI SALES — dipakai rincian order
    ============================================================ */
 const FMT_WAKTU_CATATAN = new Intl.DateTimeFormat('id-ID', {
   timeZone: 'Asia/Jakarta', weekday: 'short', day: 'numeric', month: 'short',
@@ -696,143 +719,6 @@ function daftarCatatanHtml(catatan) {
       <span class="siapa">${baru ? '<span class="tanda nota-pending">Baru</span>' : ''}
         ${esc(FMT_WAKTU_CATATAN.format(new Date(c.dibuat_pada)))}${baru ? '' : ' · sudah dibaca'}</span></div>`;
   }).join('')}</div>`;
-}
-
-/* ============================================================
-   TAB — CATATAN (kotak masuk admin)
-   Sales menambah catatan pada order (mis. minta revisi harga). Di sini admin
-   melihat yang belum dibaca, lengkap dengan isi & harga ordernya, mengubah
-   order bila perlu, lalu menandai sudah dibaca.
-   ============================================================ */
-async function tabCatatan(panel, ctx) {
-  let mode = 'baru';   // 'baru' = belum dibaca | 'semua' = 30 hari terakhir
-
-  panel.innerHTML = `
-    <div class="kartu">
-      <div class="saring" id="k-mode" role="group" aria-label="Tampilkan catatan" style="margin-top:0">
-        <button type="button" data-mode="baru" class="aktif" aria-pressed="true">Belum dibaca</button>
-        <button type="button" data-mode="semua" aria-pressed="false">30 hari terakhir</button>
-      </div>
-      <div class="bantuan">Catatan tambahan dari sales, misalnya minta revisi harga.
-        Ubah ordernya bila perlu, lalu tandai sudah dibaca.</div>
-    </div>
-    <div id="k-daftar"><div class="memuat"><div class="putar"></div>Memuat catatan…</div></div>`;
-
-  const elDaftar = panel.querySelector('#k-daftar');
-  const profil = await db.pilih('profil', { select: 'id,nama', order: 'nama.asc' });
-  const namaOrang = Object.fromEntries(profil.map((r) => [r.id, r.nama]));
-  let data = [];
-
-  async function muat() {
-    elDaftar.innerHTML = `<div class="memuat"><div class="putar"></div>Memuat catatan…</div>`;
-    try {
-      const q = { select: 'pesanan_id,dibuat_pada', order: 'dibuat_pada.desc', limit: 2000 };
-      if (mode === 'baru') q.dibaca_pada = 'is.null';
-      else q.dibuat_pada = 'gte.' + new Date(Date.now() - 30 * 86400e3).toISOString();
-      const catatan = await db.pilih('pesanan_catatan', q);
-
-      // satu kartu per order, yang catatannya paling baru di atas
-      const ids = [...new Set(catatan.map((c) => String(c.pesanan_id)))].slice(0, 200);
-      if (!ids.length) { data = []; gambarDaftar(); return; }
-      const pesanan = await db.pilih('pesanan', {
-        select: 'id,no_pesanan,tanggal,sales_id,toko_id,toko_nama,catatan,total,' +
-                'pesanan_item(id,urut,barang_id,barang_nama,satuan,qty,harga,harga_per_kg,berat_kg,subtotal,nota_dibuat,no_nota),' +
-                'pesanan_catatan(id,teks,dibuat_pada,dibaca_pada,oleh)',
-        id: `in.(${ids.join(',')})`,
-      });
-      const urutan = new Map(ids.map((id, k) => [id, k]));
-      data = pesanan.sort((a, b) => urutan.get(String(a.id)) - urutan.get(String(b.id)));
-      gambarDaftar();
-    } catch (err) {
-      elDaftar.innerHTML = `<div class="kosong-pesan"><span class="ikon">${ikon('peringatan', 40)}</span>${
-        esc(err.message || 'Gagal memuat catatan.')}</div>`;
-    }
-  }
-
-  function gambarDaftar() {
-    if (!data.length) {
-      elDaftar.innerHTML = mode === 'baru'
-        ? `<div class="kosong-pesan"><span class="ikon">${ikon('centang', 40)}</span>Tidak ada catatan baru.<br>
-            Semua catatan dari sales sudah dibaca.</div>`
-        : `<div class="kosong-pesan"><span class="ikon">${ikon('kosong', 40)}</span>Belum ada catatan
-            dalam 30 hari terakhir.</div>`;
-      return;
-    }
-    elDaftar.innerHTML = data.map((p) => {
-      const item = (p.pesanan_item || []).slice().sort((a, b) => a.urut - b.urut);
-      const adaBaru = (p.pesanan_catatan || []).some((c) => !c.dibaca_pada);
-      return `
-      <div class="riwayat kotak-masuk${adaBaru ? ' ada-baru' : ''}" data-id="${esc(p.id)}">
-        <div class="km-kepala">
-          <span class="toko">${esc(p.toko_nama)}</span>
-          <span class="meta">
-            <span class="kode">${esc(p.no_pesanan)}</span>
-            <span>${esc(namaOrang[p.sales_id] || '—')}</span>
-            <span>${esc(tanggalPendek(p.tanggal))}</span>
-          </span>
-        </div>
-        <div class="riwayat-isi">
-          ${daftarCatatanHtml(p.pesanan_catatan)}
-          <table class="km-barang">${item.map((i) => `<tr>
-            <td>${esc(i.barang_nama)}<div class="ket">${esc(rincianItem(i))}</div></td>
-            <td>${esc(rupiah(i.subtotal))}</td></tr>`).join('')}
-            <tr class="km-total"><td>Total order</td><td>${esc(rupiah(p.total))}</td></tr></table>
-          <div class="tombol-baris">
-            <button type="button" class="btn kecil" data-aksi="ubah" style="width:100%">Ubah order</button>
-            ${adaBaru ? `<button type="button" class="btn abu kecil" data-aksi="baca" style="width:100%">
-              Sudah dibaca</button>` : ''}
-          </div>
-        </div>
-      </div>`;
-    }).join('');
-  }
-
-  async function tandaiDibaca(p, tombol) {
-    if (tombol) tombol.disabled = true;
-    try {
-      await db.rpc('tandai_catatan_dibaca', { p_pesanan_id: Number(p.id) });
-      ctx.segarkanLencana?.();
-      return true;
-    } catch (err) {
-      if (tombol) tombol.disabled = false;
-      pesan(err.message, 'salah');
-      return false;
-    }
-  }
-
-  panel.querySelector('#k-mode').addEventListener('click', (e) => {
-    const b = e.target.closest('[data-mode]');
-    if (!b || b.dataset.mode === mode) return;
-    mode = b.dataset.mode;
-    panel.querySelectorAll('#k-mode [data-mode]').forEach((x) => {
-      x.classList.toggle('aktif', x === b);
-      x.setAttribute('aria-pressed', String(x === b));
-    });
-    muat();
-  });
-
-  elDaftar.addEventListener('click', async (e) => {
-    const b = e.target.closest('[data-aksi]');
-    if (!b) return;
-    const kartu = b.closest('[data-id]');
-    const p = data.find((x) => String(x.id) === kartu?.dataset.id);
-    if (!p) return;
-
-    if (b.dataset.aksi === 'baca') {
-      if (await tandaiDibaca(p, b)) { pesan('Catatan ditandai sudah dibaca.', 'ok'); muat(); }
-      return;
-    }
-    // Ubah dari kotak masuk = menanggapi catatannya, jadi setelah tersimpan
-    // catatannya sekalian ditandai sudah dibaca.
-    bukaUbahOrder(p, ctx, async () => {
-      if ((p.pesanan_catatan || []).some((c) => !c.dibaca_pada)) {
-        if (await tandaiDibaca(p)) pesan('Order diperbarui · catatan ditandai sudah dibaca.', 'ok');
-      }
-      await muat();
-    });
-  });
-
-  await muat();
 }
 
 /** Admin mengubah order. Hanya admin yang boleh. */

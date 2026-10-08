@@ -38,6 +38,7 @@ const GAMBAR = {
   // bukan "tidak boleh".
   kosong: '<path d="M4 9h16v11H4z"/><path d="M4 9 7.5 4h9L20 9"/><path d="M12 4v5"/>',
   jam: '<path d="M12 3.5a8.5 8.5 0 1 1 0 17 8.5 8.5 0 0 1 0-17z"/><path d="M12 7v5.2l3.4 2"/>',
+  lonceng: '<path d="M6 16.5V11a6 6 0 0 1 12 0v5.5l1.5 2h-15z"/><path d="M10 21.5h4"/><path d="M12 3v2"/>',
   keluar: '<path d="M14 4h6v16h-6"/><path d="m9 16 4-4-4-4"/><path d="M13 12H3"/>',
 };
 

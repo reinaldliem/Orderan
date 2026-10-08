@@ -445,21 +445,24 @@ status diisi admin di Meja Order).
   sales.
 - Data diambil ulang setiap aplikasi dibuka lagi (status bisa berubah).
 
-### Kotak Masuk Catatan (Admin → Catatan)
+### Lonceng Notifikasi (admin)
 Catatan tambahan dari sales (mis. minta revisi harga) yang belum dibaca admin.
-- **Lencana** = kotak `sinyal` 20px berisi angka, di menu Admin (bar bawah)
-  dan di tab Catatan. Satu-satunya pemakaian merah oksida di luar "bahaya":
+Sengaja ringan — pemilik menolak tab kotak masuk berisi kartu order ("terlalu berat").
+- **Lonceng** di header, di kiri tombol Keluar (`.btn-atas`, 44px), hanya
+  untuk admin. **Lencana** = kotak `sinyal` 20px berisi angka di pojok
+  kanan-atas lonceng — satu-satunya pemakaian merah oksida di luar "bahaya":
   angka notifikasi merah adalah konvensi yang dikenali semua orang.
   Diperbarui tiap menit & saat aplikasi dibuka; angka bertambah -> pesan
-  singkat "N catatan baru dari sales".
-- **Satu kartu per order** (gaya `.riwayat`), garis kiri 6px `tunggu` bila
-  ada yang belum dibaca. Isi: catatan (yang baru berlatar `tunggu-muda` dan
-  bertanda BARU putus-putus), lalu barang & harga order, lalu Ubah order /
-  Sudah dibaca. Ubah dari kotak masuk = menanggapi, jadi catatannya ikut
-  ditandai dibaca.
-- Saringan: Belum dibaca (bawaan) / 30 hari terakhir.
+  singkat "N catatan baru dari sales — ketuk lonceng di atas".
+- **Panel** menggantung tepat di bawah header, rata kanan, lebar maks 380px,
+  bingkai tinta 3px, kepala tinta "NOTIFIKASI" + "Tandai semua dibaca".
+  Tiap baris: titik persegi `sinyal`, NAMA SALES · TOKO (label kecil), isi
+  catatan (maks 3 baris), no order · waktu. Ketuk baris = catatan order itu
+  dibaca + langsung membuka rincian order (`#/admin/order/<id>`). Tutup: ketuk
+  di luar, Esc, atau lonceng lagi.
 - Di Meja Order, ikon catatan order yang punya catatan belum dibaca diblok
-  `tunggu` (bukan sekadar diwarnai). Sales melihat "sudah/belum dibaca admin".
+  `tunggu`; di rincian order catatan baru berlatar `tunggu-muda` bertanda
+  BARU. Sales melihat "sudah/belum dibaca admin".
 
 ### Cap Tersimpan (signature)
 Kotak bergaris tinta 3px berisi ikon centang dan kata TERSIMPAN,
