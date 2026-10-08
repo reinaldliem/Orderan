@@ -428,10 +428,12 @@ program nota pemilik — admin menempelnya, website tidak pernah membuatnya.
 ### Riwayat sales (Order Saya)
 Sales melihat order miliknya sendiri dan status notanya (hanya membaca;
 status diisi admin di Meja Order).
-- **Saringan dalam satu kartu:** Mingguan / Bulanan (`.saring`), baris
-  periode `‹ OKTOBER 2026 ›` (tombol 44px, judul Anton 20px, keterangan
-  kecil "Bulan ini · diperbarui 13.59"), lalu Semua / Pending / Sudah.
-  Minggu = Senin–Minggu. Tombol maju mati di periode sekarang.
+- **Saringan dalam satu kartu:** Harian / Mingguan / Bulanan (`.saring`),
+  baris periode `‹ KAMIS, 8 OKT 2026 ›` (tombol 44px, judul Anton 20px,
+  keterangan kecil "Hari ini · diperbarui 13.59"), lalu Semua / Pending /
+  Sudah. Minggu = Senin–Minggu. Tombol maju mati di periode sekarang.
+- **Dibuka di Harian** (pemilik): setiap hari baru riwayat mulai kosong;
+  hari/minggu/bulan sebelumnya lewat tombol mundur.
 - **Ringkasan tiga blok:** Order · Pending nota (ladang `tunggu` selama
   masih ada) · Nilai order selebar kartu.
 - **Tanda status per order** di baris meta kartu — bentuk, bukan hanya

@@ -17,11 +17,16 @@ const PILIH_KOLOM =
   'nota_dibuat,no_nota),' +
   'pesanan_catatan(id,teks,dibuat_pada)';
 
-// Pilihan saringan bertahan selama tab ini terbuka (pindah ke tab Order lalu
-// kembali tidak mengembalikannya ke awal).
-const pilihan = { jenis: 'bulan', geser: 0, status: 'semua' };
+// Dibuka di HARIAN (pemilik): setiap hari baru riwayat mulai kosong lagi;
+// order sebelumnya tetap bisa dilihat lewat tombol mundur / Mingguan / Bulanan.
+// Pilihan bertahan selama tab ini terbuka (pindah ke tab Order lalu kembali
+// tidak mengembalikannya ke awal).
+const pilihan = { jenis: 'hari', geser: 0, status: 'semua' };
 
-/* ---------------- periode: Senin–Minggu, atau satu bulan kalender ---------------- */
+/* ---------------- periode: satu hari, Senin–Minggu, atau satu bulan kalender ---------------- */
+const FMT_HARI = new Intl.DateTimeFormat('id-ID', {
+  weekday: 'long', day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC',
+});
 const FMT_BULAN = new Intl.DateTimeFormat('id-ID', { month: 'long', year: 'numeric', timeZone: 'UTC' });
 const FMT_TGL = new Intl.DateTimeFormat('id-ID', { day: 'numeric', month: 'short', timeZone: 'UTC' });
 const FMT_JAM = new Intl.DateTimeFormat('id-ID', { timeZone: 'Asia/Jakarta', hour: '2-digit', minute: '2-digit' });
@@ -31,6 +36,15 @@ const keIso = (d) => d.toISOString().slice(0, 10);
 
 function hitungPeriode(jenis, geser) {
   const hari = keTgl(hariIni());   // tanggal WIB hari ini
+  if (jenis === 'hari') {
+    const d = new Date(hari);
+    d.setUTCDate(hari.getUTCDate() - geser);
+    return {
+      dari: keIso(d), sampai: keIso(d),
+      judul: FMT_HARI.format(d),
+      sebutan: geser === 0 ? 'Hari ini' : geser === 1 ? 'Kemarin' : `${geser} hari lalu`,
+    };
+  }
   if (jenis === 'minggu') {
     const senin = new Date(hari);
     senin.setUTCDate(hari.getUTCDate() - ((hari.getUTCDay() + 6) % 7) - 7 * geser);
@@ -76,6 +90,7 @@ export async function gambar(isi, ctx) {
   isi.innerHTML = `
     <div class="kartu saring-riwayat">
       <div class="saring" id="r-jenis" role="group" aria-label="Lihat per">
+        <button type="button" data-jenis="hari">Harian</button>
         <button type="button" data-jenis="minggu">Mingguan</button>
         <button type="button" data-jenis="bulan">Bulanan</button>
       </div>
@@ -129,6 +144,9 @@ export async function gambar(isi, ctx) {
       });
       if (n !== nomorTarik) return;
       semua = baris;
+      // judul ikut diperbarui: kalau aplikasi terbuka melewati tengah malam,
+      // "Hari ini" sudah berganti tanggal
+      isi.querySelector('#r-judul').textContent = per.judul;
       isi.querySelector('#r-sebutan').textContent =
         `${per.sebutan} · diperbarui ${FMT_JAM.format(new Date())}`;
       gambarSemua();
@@ -157,19 +175,21 @@ export async function gambar(isi, ctx) {
     const daftar = tampil();
     gambarRingkas(daftar);
     const per = hitungPeriode(pilihan.jenis, pilihan.geser);
+    // "hari ini" / "minggu ini" untuk periode sekarang, "pada <tanggal>" untuk yang lalu
+    const pada = pilihan.geser === 0 ? per.sebutan.toLowerCase() : `pada ${per.judul}`;
 
     if (!semua.length) {
       elDaftar.innerHTML = `<div class="kosong-pesan">
-        <span class="ikon">${ikon('kosong', 40)}</span>Tidak ada order pada ${esc(per.judul)}.
+        <span class="ikon">${ikon('kosong', 40)}</span>Belum ada order ${esc(pada)}.
         ${pilihan.geser === 0 ? '<br>Buat order baru di tab <b>Order</b>.' : ''}</div>`;
       return;
     }
     if (!daftar.length) {
       elDaftar.innerHTML = pilihan.status === 'pending'
-        ? `<div class="kosong-pesan"><span class="ikon">${ikon('centang', 40)}</span>Semua order pada ${
-            esc(per.judul)} sudah dibuatkan nota.</div>`
-        : `<div class="kosong-pesan"><span class="ikon">${ikon('jam', 40)}</span>Belum ada order pada ${
-            esc(per.judul)} yang sudah dibuatkan nota.</div>`;
+        ? `<div class="kosong-pesan"><span class="ikon">${ikon('centang', 40)}</span>Semua order ${
+            esc(pada)} sudah dibuatkan nota.</div>`
+        : `<div class="kosong-pesan"><span class="ikon">${ikon('jam', 40)}</span>Belum ada order ${
+            esc(pada)} yang sudah dibuatkan nota.</div>`;
       return;
     }
     elDaftar.innerHTML = daftar.map((p) => kartuOrder(p)).join('');
