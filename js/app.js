@@ -1,5 +1,6 @@
 // Rangka aplikasi: cek login, pasang bar bawah, ganti halaman.
 
+import './pasang.js';   // PALING AWAL: tangkap tawaran "pasang aplikasi" + daftarkan sw.js
 import { BELUM_DISETEL } from './config.js';
 import * as db from './db.js';
 import { ikon } from './ikon.js';
@@ -103,6 +104,17 @@ function rutaSekarang() {
   return HALAMAN[h] ? h : 'order';
 }
 
+// Menu samping — hanya admin di layar komputer (≥ 1024px, diatur CSS). Di HP
+// tetap bar bawah + tab di halaman Admin. Bagian Admin punya alamat sendiri
+// (#/admin/toko, …); yang aktif ditandai admin.js setelah tabnya ditentukan.
+const MENU_SAMPING = [
+  { bagian: 'order',  href: '#/admin/order',  ikon: 'nota',   label: 'Order' },
+  { bagian: 'buat',   href: '#/order',        ikon: 'tambah', label: 'Buat order' },
+  { bagian: 'toko',   href: '#/admin/toko',   ikon: 'toko',   label: 'Toko' },
+  { bagian: 'barang', href: '#/admin/barang', ikon: 'barang', label: 'Barang' },
+  { bagian: 'akun',   href: '#/admin/akun',   ikon: 'akun',   label: 'Akun' },
+];
+
 function gambarKerangka(kunci) {
   const h = HALAMAN[kunci];
   const adminkah = status.profil?.peran === 'admin';
@@ -110,10 +122,18 @@ function gambarKerangka(kunci) {
     .filter(([, v]) => (adminkah ? !v.bukanAdmin : !v.adminSaja));
   const pr = status.profil;
 
+  const bagianAktif = kunci === 'order' ? 'buat' : null;   // bagian Admin ditandai admin.js
   app.innerHTML = `
+    ${adminkah ? `
+    <nav class="samping" aria-label="Menu admin">
+      <div class="samping-merek">Order Sales</div>
+      ${MENU_SAMPING.map((m) => `<a href="${m.href}" data-bagian="${m.bagian}"${
+        m.bagian === bagianAktif ? ' class="aktif" aria-current="page"' : ''}>
+        ${ikon(m.ikon, 20)}<span>${esc(m.label)}</span></a>`).join('')}
+    </nav>` : ''}
     <header class="atas">
       <div>
-        <h1>${esc(h.judul)}</h1>
+        <h1>${esc(h.judul)}<span class="h1-bagian"></span></h1>
         <div class="sub">${esc(pr?.nama || '')}${
           adminkah ? ' · admin' : pr?.kode_sales ? ' · ' + esc(pr.kode_sales) : ''
         }</div>
@@ -135,6 +155,8 @@ function gambarKerangka(kunci) {
 
   // Lebar 1280px hanya untuk tab Order di Admin; admin.js memasangnya lagi.
   document.body.classList.remove('tanpa-bar', 'lebar');
+  // Mode desktop (menu samping, selebar jendela) hanya untuk admin; ukurannya diatur CSS.
+  document.body.classList.toggle('peran-admin', adminkah);
   document.getElementById('btn-keluar').addEventListener('click', keluarSekarang);
   notif.pasangLonceng(document.getElementById('btn-lonceng'));
   return document.getElementById('isi');
@@ -208,7 +230,7 @@ function lupakanLencana() {
 // ------------------------------------------------------------
 async function gambarLogin() {
   document.body.classList.add('tanpa-bar');
-  document.body.classList.remove('lebar');
+  document.body.classList.remove('lebar', 'peran-admin');
   const modul = await import('./pages/login.js');
   await modul.gambar(app, {
     setelahMasuk: async (pr) => {

@@ -258,6 +258,33 @@ sekaligus. Hanya tab itu yang melebar sampai **1280px** (`body.lebar`,
 dipasang dan dilepas oleh admin.js / app.js). Tab Toko, Barang, Akun dan
 semua halaman sales tetap 560px.
 
+**Mode desktop admin (komputer, ≥ 1024px).** Untuk peran admin saja
+(`body.peran-admin`) dan sepenuhnya lewat CSS, sehingga berganti sendiri
+saat jendela diubah ukurannya:
+- Kolom 560px dilepas. Aplikasi menjadi grid **menu samping 220px |
+  isi selebar jendela**.
+- **Menu samping**: ladang `tinta`, merek "ORDER SALES" (Anton 22px), dan
+  lima tautan uppercase 12px dengan target 44px (Order · Buat order · Toko ·
+  Barang · Akun). Yang aktif dibalik ke `kraft-muda` + `tinta`, sama
+  logikanya dengan `.tab button.aktif`; yang tidak aktif `kraft-pudar`.
+- Bar bawah dan tab internal Admin disembunyikan. Judul header mendapat
+  " · Toko" dan seterusnya.
+- Isi diberi padding 20px 24px.
+- Toko, Barang, dan Akun tampil sebagai **tabel lebar** (`.sheet`: garis
+  sel, kepala membeku), bukan kartu. Akun dua kolom: tambah di kiri,
+  daftar di kanan.
+- **Buat Order dua kolom**: Toko, Catatan, Total di kiri (300–380px), Barang
+  di kanan.
+- Lembar (ubah, rincian, tanya) muncul **di tengah layar** berbingkai tinta
+  3px, bukan dari bawah.
+- Sales dan semua layar < 1024px tidak berubah.
+
+**Aplikasi terpasang (PWA).** Ikon = favicon (kotak `tinta`, nota `blok`).
+Versi maskable diperkecil 72% supaya utuh di dalam lingkaran aman. Tanpa
+sinyal, layar "Tidak ada koneksi" (latar `kraft`, tombol tinta "Coba lagi")
+dibuat oleh `sw.js`. `sw.js` tidak menyimpan kode aplikasi, jadi tampilan
+selalu versi terbaru.
+
 Irama jaraknya lima langkah: **8px** untuk jarak ikon ke teks, **10px**
 untuk kelompok rapat (tombol berdampingan, antar baris barang), **12px**
 untuk pemisah antar bagian, **15px** untuk padding di dalam blok

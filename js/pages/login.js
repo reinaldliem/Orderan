@@ -4,6 +4,7 @@ import * as db from '../db.js';
 import { DARI_LAYAR, hapusSambungan } from '../config.js';
 import { ikon } from '../ikon.js';
 import { pesan, tanya } from '../util.js';
+import * as pasangApp from '../pasang.js';
 
 export async function gambar(app, { setelahMasuk }) {
   // Username SELALU kosong (permintaan pemilik): tidak ada yang mengingat
@@ -76,6 +77,8 @@ export async function gambar(app, { setelahMasuk }) {
         Lupa PIN? Hubungi admin untuk PIN baru.
       </p>
 
+      <div class="pasang-aplikasi" id="pasang-aplikasi"></div>
+
       ${DARI_LAYAR ? `
       <p style="text-align:center;margin-top:22px">
         <button type="button" id="btn-sambungan"
@@ -123,6 +126,32 @@ export async function gambar(app, { setelahMasuk }) {
       btn.textContent = 'Masuk';
     }
   });
+
+  // ---------- pasang sebagai aplikasi (PWA) ----------
+  // Chrome/Edge (HP & komputer): tombol, kalau browser menawarkan.
+  // iPhone: tidak ada tombol otomatis, jadi petunjuk manual.
+  // Sudah dibuka sebagai aplikasi: tidak tampil apa-apa.
+  const elPasang = app.querySelector('#pasang-aplikasi');
+  const gambarPasang = () => {
+    if (!elPasang.isConnected) { lepasPasang(); return; }
+    if (pasangApp.bisaPasang()) {
+      elPasang.innerHTML = `
+        <button type="button" class="btn garis" id="btn-pasang">${ikon('unduh', 18)}Pasang aplikasi</button>
+        <div class="bantuan">Ikon Order Sales muncul di layar utama HP atau di menu Start komputer.</div>`;
+    } else if (pasangApp.iPhone()) {
+      elPasang.innerHTML = `<div class="bantuan">Pasang di iPhone: ketuk <b>Bagikan</b>
+        lalu <b>Tambah ke Layar Utama</b>.</div>`;
+    } else {
+      elPasang.innerHTML = '';
+    }
+  };
+  const lepasPasang = pasangApp.saatBerubah(gambarPasang);
+  elPasang.addEventListener('click', async (e) => {
+    if (!e.target.closest('#btn-pasang')) return;
+    await pasangApp.pasang();
+    gambarPasang();
+  });
+  gambarPasang();
 
   app.querySelector('#btn-sambungan')?.addEventListener('click', async () => {
     if (!(await tanya('Ganti sambungan database?',

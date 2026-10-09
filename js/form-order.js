@@ -22,23 +22,26 @@ export function buatFormOrder(o) {
   const uid = 'f' + ++nomorForm;   // id unik: dua form boleh hidup bersamaan
 
   const el = document.createElement('div');
+  // Kelas fo-* hanya penanda tata letak: di halaman Buat Order versi komputer
+  // (mode desktop admin) blok-blok ini disusun dua kolom oleh CSS.
+  el.className = 'form-order';
   el.innerHTML = `
-    <div class="kartu" data-slot="toko"></div>
+    <div class="kartu fo-toko" data-slot="toko"></div>
 
-    <div class="kartu">
+    <div class="kartu fo-barang">
       <div class="judul-bagian">Barang yang dipesan</div>
       <div data-slot="item"></div>
       <button type="button" class="btn garis" data-aksi="tambah">+ Tambah barang</button>
     </div>
 
     ${pakaiCatatan ? `
-    <div class="kartu">
+    <div class="kartu fo-catatan">
       <label class="label" for="catatan-${uid}">Catatan</label>
       <textarea id="catatan-${uid}" data-slot="catatan"
                 placeholder="Contoh: kirim besok pagi, minta nota terpisah…"></textarea>
     </div>` : ''}
 
-    <div class="total-kotak">
+    <div class="total-kotak fo-total">
       <span class="lbl">Total order</span>
       <span class="nilai" data-slot="total">Rp 0</span>
     </div>`;

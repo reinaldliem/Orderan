@@ -20,7 +20,10 @@ export async function gambar(isi, ctx) {
   const kode = [tanggalPanjang(tgl), status.profil?.kode_sales || status.profil?.nama]
     .filter(Boolean).map(esc).join(' · ');
 
+  // .buat-order: di komputer (mode desktop admin) form disusun dua kolom —
+  // hanya di halaman ini, bukan di lembar "Ubah order" yang memakai form sama.
   isi.innerHTML = `
+    <div class="buat-order">
     <div class="baris-batch">${ikon('tanggal', 15)}<span>${kode}</span></div>
     <div id="slot-form"></div>
     <button type="button" class="btn hijau blok-bawah" id="btn-simpan">
@@ -28,6 +31,7 @@ export async function gambar(isi, ctx) {
     </button>
     <div class="bantuan" style="text-align:center;margin-top:12px">
       Isian tersimpan sementara di HP — aman kalau aplikasi tertutup.
+    </div>
     </div>`;
 
   // ---------------- draf ----------------

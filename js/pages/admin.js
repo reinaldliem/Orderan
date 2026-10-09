@@ -24,14 +24,13 @@ export async function gambar(isi, ctx) {
 
   const panel = isi.querySelector('#panel');
 
-  // Datang dari lonceng notifikasi: #/admin/order/<id> -> buka order itu.
-  // Alamatnya langsung dirapikan supaya muat ulang tidak membukanya lagi.
-  const dariLonceng = /^#\/admin\/order\/(\d+)/.exec(location.hash);
-  if (dariLonceng) {
-    tabAktif = 'order';
-    bukaOrderNanti = Number(dariLonceng[1]);
-    history.replaceState(null, '', '#/admin');
-  }
+  // Alamat per bagian: #/admin/order | toko | barang | akun (menu samping di
+  // komputer memakainya). #/admin saja = tab terakhir yang dibuka.
+  // Dari lonceng notifikasi: #/admin/order/<id> -> buka order itu; alamatnya
+  // dirapikan supaya muat ulang tidak membukanya lagi.
+  const alamat = /^#\/admin\/(order|toko|barang|akun)(?:\/(\d+))?/.exec(location.hash);
+  if (alamat) tabAktif = alamat[1];
+  if (alamat?.[2] && tabAktif === 'order') bukaOrderNanti = Number(alamat[2]);
 
   isi.querySelector('#tab').addEventListener('click', (e) => {
     const b = e.target.closest('[data-t]');
@@ -43,10 +42,23 @@ export async function gambar(isi, ctx) {
   pilihTab(panel, isi, ctx);
 }
 
+const LABEL_TAB = { order: 'Order', toko: 'Toko', barang: 'Barang', akun: 'Akun' };
+
 function pilihTab(panel, isi, ctx) {
   isi.querySelectorAll('#tab button').forEach((b) => {
     b.classList.toggle('aktif', b.dataset.t === tabAktif);
   });
+  // Alamat ikut tab (muat ulang tetap di tab ini) — replaceState, bukan
+  // mengganti hash, supaya halaman tidak digambar ulang dari awal.
+  if (location.hash !== `#/admin/${tabAktif}`) history.replaceState(null, '', `#/admin/${tabAktif}`);
+  // Menu samping (komputer) & judul bagian di header.
+  document.querySelectorAll('.samping a[data-bagian]').forEach((a) => {
+    const aktif = a.dataset.bagian === tabAktif;
+    a.classList.toggle('aktif', aktif);
+    if (aktif) a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current');
+  });
+  const h1 = document.querySelector('.atas .h1-bagian');
+  if (h1) h1.textContent = ` · ${LABEL_TAB[tabAktif]}`;
   // Tabel order butuh layar lebar; tab lain tetap satu kolom 560px.
   document.body.classList.toggle('lebar', tabAktif === 'order');
 
@@ -801,6 +813,14 @@ async function tabToko(panel, ctx) {
     pratinjau: (r) =>
       [r.nama, r.kota, r.kode ? 'kode ' + r.kode : '', r.telepon].filter(Boolean).join(' · '),
     ket: (r) => [r.kota, r.kode, r.alamat, r.telepon].filter(Boolean).join(' · '),
+    // Kolom tabel lebar di komputer (mode desktop admin). Isi sudah di-esc.
+    kolom: [
+      { judul: 'Kode', isi: (r) => esc(r.kode || '—') },
+      { judul: 'Nama toko', kelas: 'k-nama', isi: (r) => esc(r.nama) },
+      { judul: 'Kota', isi: (r) => esc(r.kota || '—') },
+      { judul: 'Alamat', kelas: 'k-panjang', isi: (r) => esc(r.alamat || '—') },
+      { judul: 'Telepon', isi: (r) => esc(r.telepon || '—') },
+    ],
     formTambah: () => `
       <div class="dua">
         <div><label class="label">Kode toko</label><input type="text" id="f-kode" placeholder="PTI.MKM"></div>
@@ -924,6 +944,29 @@ async function tabBarang(panel, ctx) {
       if (r.kategori) bagian.push(r.kategori);
       return bagian.join(' · ');
     },
+    // Kolom tabel lebar di komputer. Angkanya sama dengan keterangan kartu di
+    // atas (harga & HPP per kg untuk barang per-kilo, margin dari keduanya).
+    kolom: [
+      { judul: 'Kode', isi: (r) => esc(r.kode || '—') },
+      { judul: 'Nama barang', kelas: 'k-nama', isi: (r) => esc(r.nama) },
+      { judul: 'Satuan', isi: (r) => esc(r.satuan || '—') },
+      { judul: 'Harga jual', kelas: 'ang', isi: (r) => {
+        const rek = Number(r.harga_rekomendasi) || 0;
+        const perKg = Number(r.berat_kg) ? '/kg' : '';
+        return rek ? esc(rupiah(rek) + perKg) : (perKg ? 'per kg' : '—');
+      } },
+      { judul: 'Berat', kelas: 'ang', isi: (r) => (Number(r.berat_kg) ? esc(`${angka(r.berat_kg)} kg`) : '—') },
+      { judul: 'HPP', kelas: 'ang', isi: (r) => {
+        const hpp = bacaHpp(r);
+        return hpp === null ? '—' : esc(rupiah(hpp) + (Number(r.berat_kg) ? '/kg' : ''));
+      } },
+      { judul: 'Margin', kelas: 'ang', isi: (r) => {
+        const hpp = bacaHpp(r);
+        const rek = Number(r.harga_rekomendasi) || 0;
+        return hpp !== null && rek > 0 ? esc(`${Math.round(((rek - hpp) / rek) * 100)}%`) : '—';
+      } },
+      { judul: 'Kategori', isi: (r) => esc(r.kategori || '—') },
+    ],
 
     // Tambah & Ubah barang memakai form universal yang sama.
     sheetTambah: (c, selesai) => bukaFormBarang(null, c, selesai),
@@ -1053,28 +1096,53 @@ async function tabMaster(panel, ctx, o) {
       return;
     }
 
-    wadah.innerHTML = cocok
-      .map(
-        (r) => `
+    const tanda = (r) =>
+      (r.sumber === 'sales' ? '<span class="tanda usul">usulan sales</span>' : '') +
+      (!r.aktif ? '<span class="tanda mati">nonaktif</span>' : '');
+
+    // Dua bentuk dari data yang sama; CSS yang memilih: kartu di HP, tabel
+    // lebar di komputer (mode desktop admin). Tahan ubah-ukuran jendela.
+    const kartu = cocok.map((r) => `
       <div class="riwayat">
         <button type="button" class="riwayat-kepala" data-id="${esc(r.id)}">
           <span class="kiri">
             <span class="toko">${esc(r.nama)}
-              ${r.sumber === 'sales' ? '<span class="tanda usul">usulan sales</span>' : ''}
-              ${!r.aktif ? '<span class="tanda mati">nonaktif</span>' : ''}</span>
+              ${tanda(r)}</span>
             <span class="meta">${esc(o.ket(r))}</span>
           </span>
           <span class="uang" style="font-size:20px;color:var(--teks-2)">›</span>
         </button>
-      </div>`
-      )
-      .join('') + (data.length > 200 && !q ? `<div class="bantuan" style="text-align:center">Menampilkan 200 teratas — pakai kotak cari.</div>` : '');
+      </div>`).join('');
+
+    const tabel = o.kolom ? `
+      <div class="daftar-tabel">
+        <div class="lembar-kerja" role="region" aria-label="Daftar ${esc(o.judul.toLowerCase())}" tabindex="0">
+          <table class="sheet tabel-master">
+            <thead><tr>${o.kolom.map((k) => `<th scope="col" class="${k.kelas || ''}">${esc(k.judul)}</th>`).join('')}
+              <th scope="col">Status</th></tr></thead>
+            <tbody>${cocok.map((r) => `
+              <tr data-id="${esc(r.id)}" tabindex="0" title="Ubah ${esc(r.nama)}">${
+                o.kolom.map((k) => `<td class="${k.kelas || ''}">${k.isi(r)}</td>`).join('')}
+                <td class="k-status">${tanda(r) || '<span class="ket-aktif">aktif</span>'}</td></tr>`).join('')}
+            </tbody>
+          </table>
+        </div>
+      </div>` : '';
+
+    wadah.innerHTML = `<div class="${o.kolom ? 'daftar-kartu' : ''}">${kartu}</div>${tabel}` +
+      (data.length > 200 && !q ? `<div class="bantuan" style="text-align:center">Menampilkan 200 teratas — pakai kotak cari.</div>` : '');
   }
 
   cari.addEventListener('input', gambarList);
 
+  // Kartu (HP) atau baris tabel (komputer) -> lembar Ubah yang sama.
+  wadah.addEventListener('keydown', (e) => {
+    if (e.key !== 'Enter' || !e.target.matches('tr[data-id]')) return;
+    e.preventDefault();
+    e.target.click();
+  });
   wadah.addEventListener('click', (e) => {
-    const k = e.target.closest('.riwayat-kepala');
+    const k = e.target.closest('.riwayat-kepala, tr[data-id]');
     if (!k) return;
     const r = data.find((x) => String(x.id) === k.dataset.id);
     if (r) bukaUbah(r);
@@ -1236,7 +1304,8 @@ async function tabMaster(panel, ctx, o) {
    ============================================================ */
 async function tabAkun(panel) {
   panel.innerHTML = `
-    <div class="kartu">
+    <div class="tata-akun">
+    <div class="kartu akun-tambah">
       <div class="judul-bagian">Tambah akun baru</div>
       <div class="dua">
         <div><label class="label">Username</label>
@@ -1250,14 +1319,43 @@ async function tabAkun(panel) {
         <select id="a-peran"><option value="sales">Sales</option><option value="admin">Admin</option></select></div>
       <button type="button" class="btn" id="a-simpan">Buat akun</button>
     </div>
-    <div class="judul-bagian">Daftar akun</div>
-    <div id="daftar-akun"></div>`;
+    <div class="akun-daftar">
+      <div class="judul-bagian">Daftar akun</div>
+      <div id="daftar-akun"></div>
+    </div>
+    </div>`;
 
   const wadah = panel.querySelector('#daftar-akun');
 
   async function muat() {
     const baris = await db.pilih('profil', { select: '*', order: 'peran.asc,nama.asc' });
-    wadah.innerHTML = baris
+    // Tombol aksi memakai atribut data-* yang sama di kartu (HP) maupun tabel
+    // (komputer), jadi satu penangan klik di bawah melayani keduanya.
+    const aksi = (p) => `
+      <button type="button" class="btn abu kecil" data-nama="${esc(p.username)}"
+              data-nama-lama="${esc(p.nama)}">Ubah nama</button>
+      <button type="button" class="btn abu kecil" data-pin="${esc(p.username)}">Ganti PIN</button>
+      <button type="button" class="btn ${p.aktif ? 'abu' : 'hijau'} kecil"${p.aktif ? ' style="color:var(--merah)"' : ''}
+              data-aktif="${esc(p.username)}" data-nilai="${p.aktif ? '0' : '1'}">
+        ${p.aktif ? 'Nonaktifkan' : 'Aktifkan'}</button>`;
+    const tabel = `
+      <div class="daftar-tabel">
+        <div class="lembar-kerja" role="region" aria-label="Daftar akun" tabindex="0">
+          <table class="sheet tabel-master tabel-akun">
+            <thead><tr><th scope="col">Nama</th><th scope="col">Username</th><th scope="col">Kode sales</th>
+              <th scope="col">Peran</th><th scope="col">Status</th><th scope="col">Aksi</th></tr></thead>
+            <tbody>${baris.map((p) => `<tr>
+              <td class="k-nama">${esc(p.nama)}</td>
+              <td><span class="kode">${esc(p.username)}</span></td>
+              <td>${esc(p.kode_sales || '—')}</td>
+              <td>${p.peran === 'admin' ? '<span class="tanda admin">admin</span>' : esc(p.peran)}</td>
+              <td class="k-status">${p.aktif ? '<span class="ket-aktif">aktif</span>' : '<span class="tanda mati">nonaktif</span>'}</td>
+              <td class="k-aksi">${aksi(p)}</td></tr>`).join('')}
+            </tbody>
+          </table>
+        </div>
+      </div>`;
+    wadah.innerHTML = `<div class="daftar-kartu">` + baris
       .map(
         (p) => `
       <div class="riwayat">
@@ -1284,7 +1382,7 @@ async function tabAkun(panel) {
         </div>
       </div>`
       )
-      .join('');
+      .join('') + `</div>` + tabel;
   }
 
   wadah.addEventListener('click', async (e) => {
