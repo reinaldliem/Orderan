@@ -383,8 +383,8 @@ maupun HP. Website hanya membuat **nomor order**; nomor nota selalu dari
 program nota pemilik — admin menempelnya, website tidak pernah membuatnya.
 - **Satu baris per barang.** Order dua barang = dua baris; tanggal, toko,
   dan no order diulang di setiap baris. Urutan kolom mengikuti contoh
-  pemilik: # · Tanggal · Toko · Barang · Jumlah · Harga · Jumlah Harga ·
-  No Order · **Nota** · **No Nota**. Tanggal `dd/mm/yyyy`, angka tanpa "Rp"
+  pemilik: # · Tanggal · Sales · Toko · Barang · Jumlah · Harga · Jumlah Harga ·
+  No Order · **Nota** · **No Nota**. Kotak Cari juga mencocokkan nama sales. Tanggal `dd/mm/yyyy`, angka tanpa "Rp"
   (10.000), seperti Excel.
 - **Kolom Nota (centang)** membeku di **kanan**, jadi di HP selalu
   terjangkau tanpa menggeser lembar. Pending = kotak 22px bergaris

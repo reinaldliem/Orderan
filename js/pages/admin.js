@@ -87,7 +87,7 @@ async function tabOrder(panel, ctx) {
             <button type="button" data-status="sudah" aria-pressed="false">Sudah</button>
           </div></div>
         <div><label class="label" for="f-cari">Cari</label>
-          <input type="text" id="f-cari" placeholder="Toko, barang, no order, no nota…"
+          <input type="text" id="f-cari" placeholder="Toko, sales, barang, no nota…"
                  autocomplete="off" enterkeyhint="search"></div>
       </div>
       <div class="tombol-baris aksi-order">
@@ -218,6 +218,7 @@ async function tabOrder(panel, ctx) {
       // Cocok di nama barang / no nota -> hanya barang itu.
       const cocokOrder = !q ||
         String(p.toko_nama).toLowerCase().includes(q) ||
+        String(namaSales[p.sales_id] ?? '').toLowerCase().includes(q) ||
         String(p.no_pesanan).toLowerCase().includes(q);
       const cocok = cocokOrder ? item : item.filter((i) =>
         String(i.barang_nama).toLowerCase().includes(q) ||
@@ -281,6 +282,7 @@ async function tabOrder(panel, ctx) {
           <thead><tr>
             <th scope="col" class="k-nomor">#</th>
             <th scope="col">Tanggal</th>
+            <th scope="col">Sales</th>
             <th scope="col">Toko</th>
             <th scope="col">Barang</th>
             <th scope="col" class="ang">Jumlah</th>
@@ -293,7 +295,7 @@ async function tabOrder(panel, ctx) {
           <tbody>${baris.map((b, k) => barisTabel(b, k + 1)).join('')}</tbody>
           <tfoot><tr>
             <td class="k-nomor"></td>
-            <td colspan="5">Total · ${nOrder} order · ${baris.length} barang</td>
+            <td colspan="6">Total · ${nOrder} order · ${baris.length} barang</td>
             <td class="ang">${esc(angka(total))}</td>
             <td></td>
             <td class="k-cek"></td>
@@ -319,6 +321,7 @@ async function tabOrder(panel, ctx) {
       <tr class="${kelas}" data-pesanan="${esc(p.id)}" data-item="${esc(i.id)}">
         <td class="k-nomor"${baru ? ' title="Order baru sejak terakhir disegarkan"' : ''}>${baru ? 'BARU' : nomor}</td>
         <td>${esc(tglSel(p.tanggal))}</td>
+        <td>${esc(namaSales[p.sales_id] || '—')}</td>
         <td class="k-toko">${esc(p.toko_nama)}${
           catatanBaru
             ? `<span class="tanda-catatan baru" title="Catatan baru dari sales — belum dibaca">${ikon('catatan', 14)}</span>`
@@ -575,10 +578,10 @@ async function tabOrder(panel, ctx) {
     const des = (v) => (v === null || v === undefined ? '' : String(v).replace('.', ','));
     const sel1 = (v) => String(v ?? '').replace(/[\t\r\n]+/g, ' ');
     const teks = [
-      ['Tanggal', 'Toko', 'Barang', 'Jumlah', 'Satuan', 'Harga', 'Jumlah Harga', 'No Order',
+      ['Tanggal', 'Sales', 'Toko', 'Barang', 'Jumlah', 'Satuan', 'Harga', 'Jumlah Harga', 'No Order',
        'Status Nota', 'No Nota'],
       ...tampil.map(({ p, i }) => [
-        tglSel(p.tanggal), p.toko_nama, i.barang_nama, des(i.qty), i.satuan,
+        tglSel(p.tanggal), namaSales[p.sales_id] || '', p.toko_nama, i.barang_nama, des(i.qty), i.satuan,
         des(i.harga), des(i.subtotal), p.no_pesanan,
         i.nota_dibuat ? 'Sudah' : 'Pending', i.no_nota ?? '',
       ]),
