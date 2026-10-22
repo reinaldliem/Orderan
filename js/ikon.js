@@ -11,6 +11,7 @@ const GAMBAR = {
   // --- navigasi utama ---
   nota: '<path d="M5 3h10l4 4v14H5z"/><path d="M15 3v4h4"/><path d="M8 12h8"/><path d="M8 16h5"/>',
   riwayat: '<path d="M4 6h12v15H4z"/><path d="M8 3h12v15"/><path d="M7 11h6"/><path d="M7 15h4"/>',
+  dasbor: '<path d="M4 20V9"/><path d="M10 20V4"/><path d="M16 20v-7"/><path d="M22 20H2"/>',
   admin: '<path d="M4 7h16"/><path d="M4 12h16"/><path d="M4 17h16"/><path d="M9 4v6"/><path d="M15 9v6"/><path d="M9 14v6"/>',
 
   // --- data induk ---

@@ -742,3 +742,32 @@ table.sheet select {
 }
 table.sheet select { padding-right: 34px; background-position: right 9px center; }
 table.sheet td:has(input[type=checkbox]) { text-align: center; }
+
+/* ---------- Dasbor pemilik ---------- */
+.grafik-gulir {
+  overflow-x: auto; -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
+}
+.grafik-gulir svg { display: block; }
+
+.grafik-kunci {
+  display: flex; gap: 16px; margin-top: 10px;
+  font-size: 10.5px; font-weight: 700;
+  letter-spacing: .12em; text-transform: uppercase;
+  color: var(--tinta-2);
+}
+.grafik-kunci span { display: inline-flex; align-items: center; gap: 6px; }
+.grafik-kunci .kot { width: 12px; height: 12px; display: inline-block; }
+.grafik-kunci .kot-omzet  { background: var(--kraft-tua); border: 1.5px solid var(--tinta); }
+.grafik-kunci .kot-margin { background: var(--tinta); }
+
+/* Tabel dasbor memakai kisi yang sama dengan edit massal, tapi isinya
+   tidak bisa diketik — jadi selnya lebih rapat. */
+table.dasbor-tabel td { padding: 10px; font-size: 13.5px; }
+table.dasbor-tabel td.num { font-variant-numeric: tabular-nums; font-weight: 700; }
+table.dasbor-tabel .ket-kecil {
+  display: block; font-size: 10.5px; font-weight: 700;
+  letter-spacing: .1em; text-transform: uppercase;
+  color: var(--tinta-2); margin-top: 2px;
+}
+table.dasbor-tabel .kode { margin-left: 6px; }

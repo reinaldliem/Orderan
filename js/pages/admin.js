@@ -12,7 +12,18 @@ import {
 let tabAktif = 'order';
 
 export async function gambar(isi, ctx) {
+  // CEO boleh melihat halaman ini, tapi RLS menolak setiap penulisannya.
+  // Lebih baik dikatakan di depan daripada dibiarkan jadi galat
+  // misterius saat tombol simpan ditekan.
+  const cumaLihat = ctx.status.profil?.peran === 'ceo';
+
   isi.innerHTML = `
+    ${cumaLihat ? `<div class="peringatan">
+      <b>Mode lihat saja</b>
+      Akun CEO bisa membuka semua data di sini, termasuk HPP, tetapi tidak
+      bisa mengubah, menambah, atau menghapus apa pun. Untuk perubahan,
+      masuk dengan akun admin.
+    </div>` : ''}
     <div class="tab" id="tab">
       <button type="button" data-t="order">${ikon('nota', 17)}Order</button>
       <button type="button" data-t="toko">${ikon('toko', 17)}Toko</button>

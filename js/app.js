@@ -83,7 +83,8 @@ export function hapusMasterLokal() {
 const HALAMAN = {
   order:   { judul: 'Buat Order', ikon: 'nota',    label: 'Order',   modul: './pages/order.js' },
   riwayat: { judul: 'Order Saya', ikon: 'riwayat', label: 'Riwayat', modul: './pages/riwayat.js' },
-  admin:   { judul: 'Admin',      ikon: 'admin',   label: 'Admin',   modul: './pages/admin.js', adminSaja: true },
+  admin:   { judul: 'Admin',      ikon: 'admin',   label: 'Admin',   modul: './pages/admin.js', peran: ['admin', 'ceo'] },
+  dasbor:  { judul: 'Dasbor',     ikon: 'dasbor',  label: 'Dasbor',  modul: './pages/ceo.js',   peran: ['admin', 'ceo'] },
 };
 
 function rutaSekarang() {
@@ -93,8 +94,9 @@ function rutaSekarang() {
 
 function gambarKerangka(kunci) {
   const h = HALAMAN[kunci];
-  const adminkah = status.profil?.peran === 'admin';
-  const menu = Object.entries(HALAMAN).filter(([, v]) => !v.adminSaja || adminkah);
+  const peran = status.profil?.peran;
+  const perannya = peran && peran !== 'sales' ? ' · ' + peran : '';
+  const menu = Object.entries(HALAMAN).filter(([, v]) => !v.peran || v.peran.includes(peran));
   const pr = status.profil;
 
   app.innerHTML = `
@@ -102,7 +104,7 @@ function gambarKerangka(kunci) {
       <div>
         <h1>${esc(h.judul)}</h1>
         <div class="sub">${esc(pr?.nama || '')}${
-          adminkah ? ' · admin' : pr?.kode_sales ? ' · ' + esc(pr.kode_sales) : ''
+          perannya || (pr?.kode_sales ? ' · ' + esc(pr.kode_sales) : '')
         }</div>
       </div>
       <div class="kanan">
@@ -144,7 +146,7 @@ async function gambarHalaman() {
     const kunci = rutaSekarang();
     const h = HALAMAN[kunci];
 
-    if (h.adminSaja && status.profil?.peran !== 'admin') {
+    if (h.peran && !h.peran.includes(status.profil?.peran)) {
       location.hash = '#/order';
       return;
     }
