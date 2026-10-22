@@ -318,14 +318,65 @@ function mundur(iso, hari) {
 /* ============================================================
    TAB 2 & 3 — MASTER TOKO / BARANG
    ============================================================ */
+/**
+ * Centang "siapa sales toko ini".
+ *
+ * Inilah yang menentukan toko muncul di "toko saya" milik sales —
+ * bukan kolom di tabel toko, melainkan baris di toko_sales. Karena itu
+ * ia ikut di form tambah: toko baru langsung sampai ke salesnya tanpa
+ * langkah kedua yang gampang terlupa.
+ */
+function centangSales(awalan, daftar, terpasang) {
+  if (!daftar.length) {
+    return `<div class="bantuan">Belum ada akun sales, jadi toko ini belum bisa
+            ditugaskan ke siapa pun.</div>`;
+  }
+  const punya = new Set((terpasang || []).map((k) => String(k).toUpperCase()));
+  const baris = daftar.map((sp) => {
+    const kode = String(sp.kode_sales).toUpperCase();
+    return `
+      <label style="display:flex;gap:10px;align-items:center;min-height:44px">
+        <input type="checkbox" class="s-sales" data-awalan="${esc(awalan)}"
+               value="${esc(kode)}"${punya.has(kode) ? ' checked' : ''}
+               style="width:22px;height:22px;min-height:22px;padding:0">
+        <span>${esc(sp.nama)} <span class="kode">${esc(kode)}</span></span>
+      </label>`;
+  }).join('');
+  return `
+    <div class="baris">
+      <label class="label">Sales yang memegang toko ini</label>
+      ${baris}
+      <div class="bantuan">Toko ini langsung muncul di "toko saya" milik sales
+      yang dicentang.</div>
+    </div>`;
+}
+
 async function tabToko(panel, ctx) {
+  // Daftar sales dimuat sekali di sini, bukan tiap kali form dibuka.
+  // Dipakai untuk centang "siapa sales toko ini".
+  let sales = [];
+  try {
+    sales = (await db.pilih('profil', {
+      select: 'nama,kode_sales,peran,aktif', order: 'nama.asc', limit: 500,
+    })).filter((x) => x.peran === 'sales' && x.kode_sales);
+  } catch { /* biarkan kosong — formnya tetap bisa dipakai tanpa sales */ }
+
   await tabMaster(panel, ctx, {
     tabel: 'toko',
     judul: 'Toko',
     kolomImpor: 'Kode toko · Nama toko · Alamat · Kota · Telepon',
     contoh: 'PTI.MKM\tTOKO MAKMUR\tJL MELATI 12\tPATI\t08123456789',
-    select: 'id,kode,nama,alamat,kota,telepon,kategori_id,sumber,aktif',
+    select: 'id,kode,nama,alamat,kota,telepon,kategori_id,sumber,aktif,toko_sales(kode_sales)',
     rpcImpor: 'impor_toko',
+    kolomSheet: [
+      { f: 'kode', label: 'Kode', lebar: 120 },
+      { f: 'nama', label: 'Nama toko', lebar: 230 },
+      { f: 'kota', label: 'Kota', lebar: 130 },
+      { f: 'alamat', label: 'Alamat', lebar: 230 },
+      { f: 'telepon', label: 'Telepon', lebar: 140 },
+      { f: 'kategori_id', label: 'Kategori', lebar: 150, tipe: 'kategori' },
+      { f: 'aktif', label: 'Tampil', lebar: 70, tipe: 'aktif' },
+    ],
     keImpor: (k) => {
       const s = k.slice();
       if (s.length > 4 && /^\d+$/.test(s[0])) s.shift();      // buang kolom NO
@@ -349,7 +400,8 @@ async function tabToko(panel, ctx) {
         <input type="text" id="f-nama" placeholder="TOKO MAKMUR"></div>
       <div class="baris"><label class="label">Alamat</label><input type="text" id="f-alamat"></div>
       <div class="baris"><label class="label">Telepon</label>
-        <input type="tel" id="f-telepon" inputmode="tel"></div>`,
+        <input type="tel" id="f-telepon" inputmode="tel"></div>
+      ${centangSales('f', sales, [])}`,
     bacaForm: (p) => ({
       kode: p.querySelector('#f-kode').value.trim() || null,
       nama: p.querySelector('#f-nama').value.trim(),
@@ -367,7 +419,8 @@ async function tabToko(panel, ctx) {
       <div class="baris"><label class="label">Alamat</label>
         <input type="text" id="e-alamat" value="${esc(r.alamat || '')}"></div>
       <div class="baris"><label class="label">Telepon</label>
-        <input type="tel" id="e-telepon" value="${esc(r.telepon || '')}"></div>`,
+        <input type="tel" id="e-telepon" value="${esc(r.telepon || '')}"></div>
+      ${centangSales('e', sales, (r.toko_sales || []).map((x) => x.kode_sales))}`,
     bacaUbah: (w) => ({
       kode: w.querySelector('#e-kode').value.trim() || null,
       nama: w.querySelector('#e-nama').value.trim(),
@@ -375,6 +428,15 @@ async function tabToko(panel, ctx) {
       telepon: w.querySelector('#e-telepon').value.trim() || null,
       alamat: w.querySelector('#e-alamat').value.trim() || null,
     }),
+
+    // Dipanggil tabMaster SESUDAH tokonya tersimpan, saat id-nya sudah
+    // ada. set_toko_sales mengatur ulang seluruh daftar: yang dicentang
+    // jadi isinya, yang tidak dicentang dilepas.
+    simpanTambahan: async (id, wadah, awalan) => {
+      const kode = [...wadah.querySelectorAll(`.s-sales[data-awalan="${awalan}"]:checked`)]
+        .map((c) => c.value);
+      await db.rpc('set_toko_sales', { p_toko_id: id, p_kode: kode });
+    },
   });
 }
 
@@ -429,6 +491,16 @@ async function tabBarang(panel, ctx) {
     contoh: 'R041-003\tAFUR BCP STENLIS\tPCS\t25.000\t17.500',
     select: 'id,kode,nama,satuan,harga_rekomendasi,berat_kg,kategori,kategori_id,sumber,aktif,barang_biaya(hpp)',
     rpcImpor: 'impor_barang',
+    kolomSheet: [
+      { f: 'kode', label: 'Kode', lebar: 120 },
+      { f: 'nama', label: 'Nama barang', lebar: 250 },
+      { f: 'satuan', label: 'Satuan', lebar: 90 },
+      { f: 'harga_rekomendasi', label: 'Harga jual', lebar: 130, tipe: 'angka' },
+      { f: 'hpp', label: 'HPP', lebar: 130, tipe: 'hpp' },
+      { f: 'berat_kg', label: 'Berat/sat (kg)', lebar: 130, tipe: 'angka' },
+      { f: 'kategori_id', label: 'Kategori', lebar: 150, tipe: 'kategori' },
+      { f: 'aktif', label: 'Tampil', lebar: 70, tipe: 'aktif' },
+    ],
     keImpor: barisKeBarang,
     pratinjau: (r) =>
       `${r.nama} — ${rupiah(r.harga_rekomendasi)} / ${r.satuan}` +
@@ -552,6 +624,177 @@ function bukaFormBarang(r, ctx, selesai) {
       btn.textContent = ubah ? 'Simpan perubahan' : 'Simpan barang';
     }
   });
+}
+
+/* ============================================================
+   EDIT MASSAL ALA SHEET
+
+   Mengedit 30 barang lewat dialog satu per satu berarti 30 kali buka,
+   ubah, simpan, tutup. Di sini semuanya tampil sekaligus sebagai kisi
+   yang bisa diketik langsung, dan hanya BARIS YANG BERUBAH yang
+   dikirim saat disimpan.
+
+   Kisinya menggulir mendatar di dalam wadahnya sendiri — halamannya
+   sendiri tidak pernah ikut menggulir ke samping.
+   ============================================================ */
+function sheetMassal(o, data, kat, muat, ctx) {
+  const kolom = o.kolomSheet || [];
+  const asli = new Map(data.map((r) => [String(r.id), r]));
+
+  const tirai = document.createElement('div');
+  tirai.className = 'tirai';
+  tirai.innerHTML = `
+    <div class="lembar lembar-lebar" role="dialog" aria-modal="true">
+      <div class="lembar-atas"><div class="tajuk">
+        <h3>Edit ${esc(o.judul.toLowerCase())} massal</h3>
+        <button type="button" class="tutup" aria-label="Tutup">&times;</button>
+      </div>
+      <div class="bantuan" id="sm-hitung">Belum ada perubahan.</div>
+      </div>
+
+      <div class="sheet-gulir">
+        <table class="sheet">
+          <thead><tr>
+            ${kolom.map((k) => `<th style="min-width:${k.lebar || 140}px">${esc(k.label)}</th>`).join('')}
+          </tr></thead>
+          <tbody>
+            ${data.map((r) => `
+              <tr data-id="${esc(r.id)}">
+                ${kolom.map((k) => `<td>${selSheet(k, r, kat)}</td>`).join('')}
+              </tr>`).join('')}
+          </tbody>
+        </table>
+      </div>
+
+      <div style="padding:14px;border-top:2px solid var(--tinta)">
+        <button type="button" class="btn" id="sm-simpan" disabled>Simpan perubahan</button>
+      </div>
+    </div>`;
+
+  const hitungEl = tirai.querySelector('#sm-hitung');
+  const simpanEl = tirai.querySelector('#sm-simpan');
+
+  /** Baris mana saja yang nilainya sudah beda dari aslinya. */
+  function berubah() {
+    const keluar = [];
+    for (const tr of tirai.querySelectorAll('tbody tr')) {
+      const r = asli.get(tr.dataset.id);
+      const beda = {};
+      for (const k of kolom) {
+        const el = tr.querySelector(`[data-f="${k.f}"]`);
+        if (!el) continue;
+        const baru = bacaSel(k, el);
+        if (!samaNilai(baru, nilaiAsli(k, r))) beda[k.f] = baru;
+      }
+      if (Object.keys(beda).length) keluar.push({ id: tr.dataset.id, beda, tr });
+    }
+    return keluar;
+  }
+
+  function segarkanHitung() {
+    const n = berubah().length;
+    hitungEl.textContent = n
+      ? `${n} baris diubah — belum disimpan.`
+      : 'Belum ada perubahan.';
+    simpanEl.disabled = n === 0;
+    simpanEl.textContent = n ? `Simpan ${n} perubahan` : 'Simpan perubahan';
+  }
+
+  tirai.addEventListener('input', segarkanHitung);
+  tirai.addEventListener('change', segarkanHitung);
+
+  tirai.addEventListener('click', async (e) => {
+    if (e.target.closest('.tutup')) {
+      if (berubah().length) {
+        const ya = await tanya('Tutup tanpa menyimpan?',
+          'Ada perubahan yang belum disimpan. Semuanya akan hilang.', 'Ya, tutup');
+        if (!ya) return;
+      }
+      tirai.remove();
+      return;
+    }
+    if (!e.target.closest('#sm-simpan')) return;
+
+    const daftar = berubah();
+    if (!daftar.length) return;
+    simpanEl.disabled = true;
+    simpanEl.textContent = `Menyimpan 0/${daftar.length}…`;
+
+    let sukses = 0;
+    const gagal = [];
+    for (const { id, beda, tr } of daftar) {
+      try {
+        // HPP tinggal di tabel lain dan hanya bisa lewat RPC.
+        const { hpp, ...kolomBiasa } = beda;
+        if (Object.keys(kolomBiasa).length) await db.ubah(o.tabel, id, kolomBiasa);
+        if (hpp !== undefined) await db.rpc('set_hpp', { p_barang_id: Number(id), p_hpp: hpp });
+        Object.assign(asli.get(id), beda);
+        tr.style.background = '';
+        sukses += 1;
+      } catch (err) {
+        tr.style.background = 'var(--sinyal-muda)';
+        gagal.push(`${asli.get(id)?.nama || id}: ${err.message}`);
+      }
+      simpanEl.textContent = `Menyimpan ${sukses}/${daftar.length}…`;
+    }
+
+    segarkanHitung();
+    if (gagal.length) {
+      pesan(`${sukses} tersimpan, ${gagal.length} gagal. ${gagal[0]}`, 'salah');
+    } else {
+      pesan(`${sukses} baris tersimpan.`, 'ok');
+      tirai.remove();
+    }
+    await muat();
+    ctx.segarkanMaster({ paksa: true }).catch(() => {});
+  });
+
+  document.body.appendChild(tirai);
+  segarkanHitung();
+}
+
+/** Nilai asli satu kolom, dinormalkan supaya bisa dibandingkan. */
+function nilaiAsli(k, r) {
+  if (k.tipe === 'hpp') return bacaHpp(r);
+  return r[k.f];
+}
+
+function samaNilai(a, b) {
+  if (a === null || a === '' || a === undefined) return b === null || b === '' || b === undefined;
+  if (typeof a === 'number' || typeof b === 'number') return Number(a) === Number(b);
+  return String(a) === String(b);
+}
+
+/** Satu sel kisi, sesuai jenis kolomnya. */
+function selSheet(k, r, kat) {
+  const v = nilaiAsli(k, r);
+  if (k.tipe === 'aktif') {
+    return `<input type="checkbox" data-f="${esc(k.f)}"${v ? ' checked' : ''}
+            style="width:22px;height:22px;min-height:22px;padding:0">`;
+  }
+  if (k.tipe === 'kategori') {
+    const opsi = kat.filter((x) => x.aktif || x.id === v)
+      .map((x) => `<option value="${esc(x.id)}"${x.id === v ? ' selected' : ''}>${esc(x.nama)}</option>`)
+      .join('');
+    return `<select data-f="${esc(k.f)}"><option value="">—</option>${opsi}</select>`;
+  }
+  if (k.tipe === 'angka' || k.tipe === 'hpp') {
+    return `<input type="text" inputmode="decimal" data-f="${esc(k.f)}"
+            value="${v === null || v === undefined ? '' : esc(String(v))}">`;
+  }
+  return `<input type="text" data-f="${esc(k.f)}"
+          value="${v === null || v === undefined ? '' : esc(String(v))}">`;
+}
+
+/** Baca satu sel kembali ke nilai yang siap dikirim. */
+function bacaSel(k, el) {
+  if (k.tipe === 'aktif') return el.checked;
+  if (k.tipe === 'kategori') return el.value ? Number(el.value) : null;
+  if (k.tipe === 'angka' || k.tipe === 'hpp') {
+    const t = el.value.trim();
+    return t === '' ? null : keAngka(t);
+  }
+  return el.value.trim() || null;
 }
 
 /* ============================================================
@@ -687,6 +930,7 @@ async function tabMaster(panel, ctx, o) {
         <button type="button" class="btn kecil" id="btn-tambah" style="width:auto">+ Tambah</button>
         <button type="button" class="btn abu kecil" id="btn-impor" style="width:auto">${ikon('tempel', 17)}Tempel dari Excel</button>
         <button type="button" class="btn abu kecil" id="btn-kategori" style="width:auto">Kategori</button>
+          <button type="button" class="btn abu kecil" id="btn-sheet" style="width:auto">Edit massal</button>
       </div>
       <div class="bantuan" id="hitung"></div>
     </div>
@@ -868,6 +1112,11 @@ async function tabMaster(panel, ctx, o) {
       }
     });
     document.body.appendChild(tirai);
+  });
+
+  panel.querySelector('#btn-sheet').addEventListener('click', () => {
+    if (!data.length) { pesan('Belum ada data untuk diedit.', 'salah'); return; }
+    sheetMassal(o, data, kat, muat, ctx);
   });
 
   panel.querySelector('#btn-kategori').addEventListener('click', () => {

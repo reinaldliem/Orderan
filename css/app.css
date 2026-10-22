@@ -700,3 +700,45 @@ input[type=date]::-webkit-calendar-picker-indicator {
   .riwayat-kepala .toko { font-size: 18px; }
   .pin-input { letter-spacing: 10px; text-indent: 10px; }
 }
+
+/* ---------- Edit massal ala sheet ----------
+   Kisinya menggulir mendatar DI DALAM wadahnya sendiri; halamannya
+   tidak pernah ikut menggulir ke samping. Itu satu-satunya cara jujur
+   menampilkan tabel lebar di layar 375px tanpa mengecilkan hurufnya
+   sampai tidak terbaca. */
+/* max-height, bukan height: lembar dengan tiga baris tidak perlu
+   setinggi layar penuh. */
+.lembar.lembar-lebar { max-width: 1200px; max-height: 92dvh; }
+
+.sheet-gulir {
+  flex: 1; overflow: auto; -webkit-overflow-scrolling: touch;
+  background: var(--kraft);
+}
+table.sheet { border-collapse: collapse; width: max-content; min-width: 100%; }
+
+table.sheet th {
+  position: sticky; top: 0; z-index: 2;
+  background: var(--tinta); color: var(--blok);
+  text-align: left; white-space: nowrap;
+  padding: 9px 10px;
+  font-size: 10.5px; font-weight: 700;
+  letter-spacing: .12em; text-transform: uppercase;
+}
+table.sheet td {
+  padding: 4px 5px;
+  border-bottom: 1px solid var(--garis);
+  border-right: 1px solid var(--garis);
+  vertical-align: middle;
+}
+table.sheet tr:last-child td { border-bottom: none; }
+
+/* Sel sheet lebih rapat daripada isian biasa — di sini kepadatan
+   justru gunanya. Tetap 16px supaya iOS tidak memperbesar layar. */
+table.sheet input[type=text],
+table.sheet select {
+  min-height: 44px; padding: 8px 9px;
+  border-width: 1.5px; font-size: 16px; font-weight: 500;
+  background: var(--blok);
+}
+table.sheet select { padding-right: 34px; background-position: right 9px center; }
+table.sheet td:has(input[type=checkbox]) { text-align: center; }
