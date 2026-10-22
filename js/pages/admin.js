@@ -103,7 +103,7 @@ async function tabOrder(panel, ctx) {
     const sid = sel.value;
     // dua syarat pada kolom yang sama -> pakai penyaring "and"
     const q = {
-      select: 'id,no_pesanan,tanggal,sales_id,toko_id,toko_nama,catatan,total,' +
+      select: 'id,no_pesanan,tanggal,sales_id,toko_id,toko_nama,catatan,total,toko(kota),' +
               'pesanan_item(urut,barang_id,barang_nama,satuan,qty,harga,harga_per_kg,berat_kg,subtotal),' +
               'pesanan_catatan(teks,dibuat_pada)',
       and: `(tanggal.gte.${d1},tanggal.lte.${d2})`,
@@ -139,6 +139,7 @@ async function tabOrder(panel, ctx) {
           <button type="button" class="riwayat-kepala" data-id="${esc(p.id)}">
             <span class="kiri">
               <span class="toko">${esc(p.toko_nama)}</span>
+              ${p.toko?.kota ? `<span class="kota">${esc(p.toko.kota)}</span>` : ''}
               <span class="meta">${esc(tanggalPendek(p.tanggal))} · ${esc(p.no_pesanan)} · ${esc(namaSales[p.sales_id] || '—')}</span>
             </span>
             <span class="uang">${esc(rupiah(p.total))}</span>
@@ -642,7 +643,7 @@ async function tabMaster(panel, ctx, o) {
       </div>`;
 
     tirai.addEventListener('click', async (e) => {
-      if (e.target === tirai || e.target.closest('.tutup')) { tirai.remove(); return; }
+      if (e.target.closest('.tutup')) { tirai.remove(); return; }
       if (!e.target.closest('#e-simpan')) return;
 
       const isiBaru = { ...o.bacaUbah(tirai), aktif: tirai.querySelector('#e-aktif').checked, sumber: 'master' };
@@ -683,7 +684,7 @@ async function tabMaster(panel, ctx, o) {
       </div>`;
 
     tirai.addEventListener('click', async (e) => {
-      if (e.target === tirai || e.target.closest('.tutup')) { tirai.remove(); return; }
+      if (e.target.closest('.tutup')) { tirai.remove(); return; }
       if (!e.target.closest('#f-simpan')) return;
 
       const baru = o.bacaForm(tirai);
@@ -748,7 +749,7 @@ async function tabMaster(panel, ctx, o) {
     });
 
     tirai.addEventListener('click', async (e) => {
-      if (e.target === tirai || e.target.closest('.tutup')) { tirai.remove(); return; }
+      if (e.target.closest('.tutup')) { tirai.remove(); return; }
       if (!e.target.closest('#i-simpan')) return;
 
       btn.disabled = true; btn.textContent = 'Mengimpor…';

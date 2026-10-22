@@ -10,8 +10,10 @@ import {
 
 const SEKALI = 20;
 
+// toko(kota) ikut ditarik karena ada nama toko yang sama persis di kota
+// berbeda — tanpa kotanya, dua order berbeda terbaca identik.
 const PILIH_KOLOM =
-  'id,no_pesanan,tanggal,toko_id,toko_nama,catatan,total,' +
+  'id,no_pesanan,tanggal,toko_id,toko_nama,catatan,total,toko(kota),' +
   'pesanan_item(urut,barang_id,barang_nama,satuan,qty,harga,harga_per_kg,berat_kg,subtotal),' +
   'pesanan_catatan(id,teks,dibuat_pada)';
 
@@ -121,6 +123,7 @@ function kartuOrder(p) {
     <button type="button" class="riwayat-kepala" data-id="${esc(p.id)}">
       <span class="kiri">
         <span class="toko">${esc(p.toko_nama)}</span>
+        ${p.toko?.kota ? `<span class="kota">${esc(p.toko.kota)}</span>` : ''}
         <span class="meta">
           <span>${esc(tanggalPendek(p.tanggal))}</span>
           <span class="kode">${esc(p.no_pesanan)}</span>

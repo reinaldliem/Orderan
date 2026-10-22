@@ -137,7 +137,7 @@ export function buatPilih(o) {
     });
 
     tirai.addEventListener('click', (e) => {
-      if (e.target === tirai || e.target.closest('.tutup')) { tutup(); return; }
+      if (e.target.closest('.tutup')) { tutup(); return; }
 
       const tombolSaring = e.target.closest('[data-saring]');
       if (tombolSaring) {

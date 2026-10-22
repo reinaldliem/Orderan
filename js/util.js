@@ -136,11 +136,32 @@ export function lembar(judul, isiHtml) {
       <div class="daftar" style="padding:16px">${isiHtml}</div>
     </div>`;
   tirai.addEventListener('click', (e) => {
-    if (e.target === tirai || e.target.closest('.tutup')) tirai.remove();
+    if (e.target.closest('.tutup')) tirai.remove();
   });
   document.body.appendChild(tirai);
   return tirai;
 }
+
+/**
+ * Menyentuh ladang gelap di luar lembar TIDAK menutupnya.
+ *
+ * Dulu menutup, dan itu menghapus seluruh isian yang sedang diketik —
+ * satu sentuhan meleset saat menambah toko atau barang baru berarti
+ * mengulang dari nol. Satu ketukan ekstra pada tombol tutup jauh lebih
+ * murah daripada mengetik ulang.
+ *
+ * Esc disediakan sebagai gantinya untuk yang memakai papan tombol: ia
+ * menekan tombol tutup lembar paling atas, jadi logika penutupan milik
+ * tiap lembar tetap berjalan apa adanya.
+ */
+document.addEventListener('keydown', (e) => {
+  if (e.key !== 'Escape') return;
+  const semua = document.querySelectorAll('.tirai');
+  const atas = semua[semua.length - 1];
+  if (!atas) return;
+  const tutup = atas.querySelector('.tutup');
+  if (tutup) { e.preventDefault(); tutup.click(); }
+});
 
 /** Unduh teks sebagai berkas. */
 export function unduh(namaFile, isi, tipe = 'text/csv;charset=utf-8') {

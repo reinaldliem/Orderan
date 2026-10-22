@@ -445,6 +445,15 @@ body.kb-open .btn.blok-bawah, body.tanpa-bar .btn.blok-bawah { bottom: 12px; }
   font-size: 20px; line-height: 1.08;
   text-transform: uppercase; letter-spacing: .01em; overflow-wrap: anywhere;
 }
+/* Kota duduk tepat di bawah nama toko, bukan diselipkan ke baris meta:
+   beberapa toko bernama sama persis di kota berbeda, jadi kota adalah
+   bagian dari identitas toko — bukan keterangan tambahan. */
+.riwayat-kepala .kota {
+  display: block; margin-top: 2px;
+  font-size: 11.5px; font-weight: 700;
+  letter-spacing: .12em; text-transform: uppercase;
+  color: var(--tinta-2);
+}
 .riwayat-kepala .meta {
   font-size: 11px; color: var(--tinta-2); margin-top: 6px;
   display: flex; flex-wrap: wrap; gap: 8px; align-items: center;
