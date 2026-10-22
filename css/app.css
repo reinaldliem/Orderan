@@ -221,6 +221,18 @@ input:focus, textarea:focus, select:focus {
 }
 input::placeholder, textarea::placeholder { color: var(--tinta-3); font-weight: 500; }
 
+/* appearance:none membuang panah bawaan select dan tidak menggantinya —
+   tanpa ini, select terbaca persis seperti kotak isian biasa. Panahnya
+   digambar ulang memakai sudut siku yang sama dengan ikon lain, bukan
+   segitiga bawaan peramban. */
+select {
+  padding-right: 40px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2317130f' stroke-width='2.5' stroke-linecap='square' stroke-linejoin='miter'%3E%3Cpath d='m5 9 7 7 7-7'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+  background-size: 18px 18px;
+}
+
 .baris { margin-bottom: 12px; }
 .baris:last-child { margin-bottom: 0; }
 .dua, .tiga { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 10px; }

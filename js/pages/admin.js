@@ -324,7 +324,7 @@ async function tabToko(panel, ctx) {
     judul: 'Toko',
     kolomImpor: 'Kode toko · Nama toko · Alamat · Kota · Telepon',
     contoh: 'PTI.MKM\tTOKO MAKMUR\tJL MELATI 12\tPATI\t08123456789',
-    select: 'id,kode,nama,alamat,kota,telepon,sumber,aktif',
+    select: 'id,kode,nama,alamat,kota,telepon,kategori_id,sumber,aktif',
     rpcImpor: 'impor_toko',
     keImpor: (k) => {
       const s = k.slice();
@@ -427,7 +427,7 @@ async function tabBarang(panel, ctx) {
     judul: 'Barang',
     kolomImpor: 'Kode · Nama barang · Satuan · Harga jual · HPP',
     contoh: 'R041-003\tAFUR BCP STENLIS\tPCS\t25.000\t17.500',
-    select: 'id,kode,nama,satuan,harga_rekomendasi,berat_kg,kategori,sumber,aktif,barang_biaya(hpp)',
+    select: 'id,kode,nama,satuan,harga_rekomendasi,berat_kg,kategori,kategori_id,sumber,aktif,barang_biaya(hpp)',
     rpcImpor: 'impor_barang',
     keImpor: barisKeBarang,
     pratinjau: (r) =>
@@ -554,8 +554,131 @@ function bukaFormBarang(r, ctx, selesai) {
   });
 }
 
+/* ============================================================
+   KATEGORI
+   Dipakai bersama oleh tab Toko dan tab Barang — keduanya memakai
+   tabMaster yang sama, jadi kategorinya pun satu jalur.
+   ============================================================ */
+
+/** Daftar pilihan kategori untuk form tambah/ubah. */
+function pilihanKategori(awalan, judul, daftar, terpilih) {
+  const opsi = daftar
+    .filter((k) => k.aktif || k.id === terpilih)
+    .map((k) => `<option value="${esc(k.id)}"${k.id === terpilih ? ' selected' : ''}>`
+      + `${esc(k.nama)}</option>`)
+    .join('');
+  return `
+    <div class="baris">
+      <label class="label" for="${awalan}-kategori">Kategori ${esc(judul.toLowerCase())}</label>
+      <select id="${awalan}-kategori">
+        <option value="">— tanpa kategori —</option>
+        ${opsi}
+      </select>
+    </div>`;
+}
+
+/** Baca pilihan kategori. Kosong berarti null, bukan 0. */
+function bacaKategori(wadah, awalan) {
+  const v = wadah.querySelector(`#${awalan}-kategori`)?.value;
+  return v ? Number(v) : null;
+}
+
+/**
+ * Lembar kelola kategori: tambah, ganti nama, hapus.
+ *
+ * Menghapus kategori TIDAK menghapus barang atau tokonya — foreign
+ * key-nya "on delete set null", jadi yang terjadi hanya barang itu
+ * kehilangan kategorinya. Itu disengaja: kategori adalah label, bukan
+ * wadah.
+ */
+async function kelolaKategori(jenis, judul, sesudah) {
+  const tirai = lembar(`Kategori ${judul.toLowerCase()}`, `
+    <div class="baris">
+      <label class="label" for="k-baru">Tambah kategori baru</label>
+      <div class="tombol-baris">
+        <input type="text" id="k-baru" placeholder="mis. SEMEN" autocomplete="off">
+        <button type="button" class="btn kecil" id="k-tambah" style="flex:0 0 auto">Tambah</button>
+      </div>
+    </div>
+    <div id="k-daftar" style="margin-top:14px"></div>`);
+
+  const daftarEl = tirai.querySelector('#k-daftar');
+
+  async function gambarDaftar() {
+    daftarEl.innerHTML = `<div class="memuat"><div class="putar"></div>Memuat…</div>`;
+    const rows = await db.pilih('kategori', {
+      select: 'id,nama,aktif', jenis: 'eq.' + jenis, order: 'nama.asc', limit: 500,
+    });
+    if (!rows.length) {
+      daftarEl.innerHTML = `<div class="bantuan">Belum ada kategori.</div>`;
+      return;
+    }
+    daftarEl.innerHTML = rows.map((k) => `
+      <div class="item" data-id="${esc(k.id)}">
+        <input type="text" class="k-nama" value="${esc(k.nama)}" aria-label="Nama kategori">
+        <div class="tombol-baris" style="margin-top:10px">
+          <button type="button" class="btn abu kecil" data-simpan="${esc(k.id)}">Simpan nama</button>
+          <button type="button" class="btn abu kecil" data-hapus="${esc(k.id)}"
+                  style="color:var(--sinyal);border-color:var(--sinyal)">Hapus</button>
+        </div>
+      </div>`).join('');
+  }
+
+  await gambarDaftar();
+
+  tirai.addEventListener('click', async (e) => {
+    const tTambah = e.target.closest('#k-tambah');
+    const tSimpan = e.target.closest('[data-simpan]');
+    const tHapus = e.target.closest('[data-hapus]');
+    if (!tTambah && !tSimpan && !tHapus) return;
+
+    try {
+      if (tTambah) {
+        const nama = tirai.querySelector('#k-baru').value.trim();
+        if (!nama) { pesan('Nama kategori masih kosong.', 'salah'); return; }
+        await db.sisip('kategori', { jenis, nama });
+        tirai.querySelector('#k-baru').value = '';
+        pesan('Kategori ditambahkan.', 'ok');
+      }
+
+      if (tSimpan) {
+        const kotak = tSimpan.closest('.item');
+        const nama = kotak.querySelector('.k-nama').value.trim();
+        if (!nama) { pesan('Nama kategori masih kosong.', 'salah'); return; }
+        await db.ubah('kategori', tSimpan.dataset.simpan, { nama });
+        pesan('Nama kategori disimpan.', 'ok');
+      }
+
+      if (tHapus) {
+        const kotak = tHapus.closest('.item');
+        const nama = kotak.querySelector('.k-nama').value.trim();
+        const ya = await tanya('Hapus kategori ini?',
+          `"${nama}" akan hilang. Barang/toko yang memakainya TIDAK ikut terhapus — `
+          + 'mereka hanya jadi tanpa kategori.', 'Ya, hapus');
+        if (!ya) return;
+        await db.hapus('kategori', tHapus.dataset.hapus);
+        pesan('Kategori terhapus.', 'ok');
+      }
+
+      await gambarDaftar();
+      await sesudah?.();
+    } catch (err) {
+      pesan(err.message, 'salah');
+    }
+  });
+}
+
 async function tabMaster(panel, ctx, o) {
   let data = [];
+
+  // Kategori dimuat sekali per tab, bukan tiap kali dialog dibuka:
+  // daftarnya pendek dan jarang berubah.
+  let kat = [];
+  async function muatKategori() {
+    kat = await db.pilih('kategori', {
+      select: 'id,nama,aktif', jenis: 'eq.' + o.tabel, order: 'nama.asc', limit: 500,
+    });
+  }
 
   panel.innerHTML = `
     <div class="kartu">
@@ -563,6 +686,7 @@ async function tabMaster(panel, ctx, o) {
       <div class="tombol-baris" style="margin-top:10px">
         <button type="button" class="btn kecil" id="btn-tambah" style="width:auto">+ Tambah</button>
         <button type="button" class="btn abu kecil" id="btn-impor" style="width:auto">${ikon('tempel', 17)}Tempel dari Excel</button>
+        <button type="button" class="btn abu kecil" id="btn-kategori" style="width:auto">Kategori</button>
       </div>
       <div class="bantuan" id="hitung"></div>
     </div>
@@ -573,6 +697,7 @@ async function tabMaster(panel, ctx, o) {
 
   async function muat() {
     data = await db.pilih(o.tabel, { select: o.select, order: 'nama.asc', limit: 5000 });
+    if (!kat.length) await muatKategori().catch(() => {});
     gambarList();
   }
 
@@ -633,20 +758,57 @@ async function tabMaster(panel, ctx, o) {
         </div></div>
         <div class="daftar" style="padding:14px">
           ${o.formUbah(r)}
+          ${pilihanKategori('e', o.judul, kat, r.kategori_id)}
           <label style="display:flex;gap:10px;align-items:center;margin:14px 0;font-size:15px">
             <input type="checkbox" id="e-aktif" ${r.aktif ? 'checked' : ''}
                    style="width:22px;height:22px;min-height:22px;padding:0">
             Tampilkan di daftar pilihan sales
           </label>
           <button type="button" class="btn" id="e-simpan">Simpan perubahan</button>
+          <button type="button" class="btn abu" id="e-hapus"
+                  style="margin-top:10px;color:var(--sinyal);border-color:var(--sinyal)">
+            Hapus ${esc(o.judul.toLowerCase())} ini
+          </button>
+          <div class="bantuan">
+            Yang sudah pernah dipakai di order tidak bisa dihapus — database
+            menolaknya. Kalau begitu, hilangkan centang di atas supaya tidak
+            muncul lagi saat sales membuat order.
+          </div>
         </div>
       </div>`;
 
     tirai.addEventListener('click', async (e) => {
       if (e.target.closest('.tutup')) { tirai.remove(); return; }
+
+      if (e.target.closest('#e-hapus')) {
+        const ya = await tanya(
+          `Hapus ${o.judul.toLowerCase()} ini?`,
+          `${r.nama} akan hilang permanen. Tindakan ini tidak bisa dibatalkan.`,
+          'Ya, hapus');
+        if (!ya) return;
+        const h = tirai.querySelector('#e-hapus');
+        h.disabled = true; h.textContent = 'Menghapus…';
+        try {
+          await db.hapus(o.tabel, r.id);
+          pesan('Terhapus.', 'ok');
+          tirai.remove();
+          await muat();
+          ctx.segarkanMaster({ paksa: true }).catch(() => {});
+        } catch (err) {
+          pesan(err.message, 'salah');
+          h.disabled = false; h.textContent = `Hapus ${o.judul.toLowerCase()} ini`;
+        }
+        return;
+      }
+
       if (!e.target.closest('#e-simpan')) return;
 
-      const isiBaru = { ...o.bacaUbah(tirai), aktif: tirai.querySelector('#e-aktif').checked, sumber: 'master' };
+      const isiBaru = {
+        ...o.bacaUbah(tirai),
+        kategori_id: bacaKategori(tirai, 'e'),
+        aktif: tirai.querySelector('#e-aktif').checked,
+        sumber: 'master',
+      };
       if (!isiBaru.nama) { pesan('Nama tidak boleh kosong.', 'salah'); return; }
       const b = tirai.querySelector('#e-simpan');
       b.disabled = true; b.textContent = 'Menyimpan…';
@@ -678,6 +840,7 @@ async function tabMaster(panel, ctx, o) {
         </div></div>
         <div class="daftar" style="padding:14px">
           ${o.formTambah()}
+          ${pilihanKategori('f', o.judul, kat, null)}
           <div style="height:14px"></div>
           <button type="button" class="btn" id="f-simpan">Simpan</button>
         </div>
@@ -687,7 +850,7 @@ async function tabMaster(panel, ctx, o) {
       if (e.target.closest('.tutup')) { tirai.remove(); return; }
       if (!e.target.closest('#f-simpan')) return;
 
-      const baru = o.bacaForm(tirai);
+      const baru = { ...o.bacaForm(tirai), kategori_id: bacaKategori(tirai, 'f') };
       if (!baru.nama) { pesan('Nama belum diisi.', 'salah'); return; }
       const b = tirai.querySelector('#f-simpan');
       b.disabled = true; b.textContent = 'Menyimpan…';
@@ -705,6 +868,12 @@ async function tabMaster(panel, ctx, o) {
       }
     });
     document.body.appendChild(tirai);
+  });
+
+  panel.querySelector('#btn-kategori').addEventListener('click', () => {
+    kelolaKategori(o.tabel, o.judul, async () => {
+      await muatKategori();
+    }).catch((e) => pesan(e.message, 'salah'));
   });
 
   panel.querySelector('#btn-impor').addEventListener('click', () => {

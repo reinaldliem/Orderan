@@ -82,6 +82,11 @@ function pesanGagal(data, status) {
     data?.hint || (typeof data === 'string' ? data : '');
   if (/invalid login credentials/i.test(t)) return 'Username atau PIN salah.';
   if (/email not confirmed/i.test(t)) return 'Akun belum diaktifkan. Hubungi admin.';
+  // Database menolak hapus karena barisnya masih dipakai order. Ini
+  // pengaman, bukan kerusakan — pesannya harus menjelaskan itu.
+  if (/foreign key constraint/i.test(t)) {
+    return 'Tidak bisa dihapus karena sudah dipakai di order yang tersimpan. Nonaktifkan saja supaya tidak muncul lagi saat membuat order baru.';
+  }
   if (status === 0) return 'Tidak ada koneksi internet. Coba lagi.';
   return t || `Gagal (kode ${status}).`;
 }
@@ -234,6 +239,18 @@ export async function sisip(tabel, baris) {
     body: baris,
     headers: { Prefer: 'return=representation' },
   });
+}
+
+/**
+ * HAPUS satu baris master (toko / barang / kategori). Admin saja — RLS
+ * yang menegakkan, bukan tampilan.
+ *
+ * Kalau barisnya masih dipakai order, database MENOLAK lewat foreign
+ * key dan pesanGagal() menerjemahkan penolakan itu jadi kalimat yang
+ * bisa dimengerti. Jadi data order tidak mungkin hilang diam-diam.
+ */
+export async function hapus(tabel, id) {
+  return kirim(`/rest/v1/${tabel}?id=eq.${encodeURIComponent(id)}`, { method: 'DELETE' });
 }
 
 export async function ubah(tabel, id, isi) {
