@@ -193,7 +193,7 @@ body.kb-open .bar, body.tanpa-bar .bar { display: none; }
 }
 
 /* ---------- Form ---------- */
-label.label {
+label.label, span.label {
   display: block; font-size: 11.5px; font-weight: 700;
   color: var(--tinta-2); margin-bottom: 6px;
   letter-spacing: .1em; text-transform: uppercase;
@@ -301,6 +301,13 @@ body.kb-open .btn.blok-bawah, body.tanpa-bar .btn.blok-bawah { bottom: 12px; }
   max-height: 88dvh; display: flex; flex-direction: column;
   overflow: hidden;
 }
+/* Lembar pilih toko/barang: TINGGI TETAP. Kalau mengikuti isinya, daftar yang
+   menyusut saat mengetik nama baru membuat kotak ketik turun ke dasar layar —
+   tepat di bawah papan tombol HP. Dengan tinggi tetap, kotak ketik selalu di
+   atas, dan tombol "Pakai …" (ditaruh paling atas bila tak ada yang cocok)
+   tetap terlihat. */
+.lembar.lembar-pilih { height: 88vh; height: 88dvh; }
+.lembar-pilih .daftar { flex: 1 1 auto; min-height: 0; }
 .lembar-atas { padding: 13px 15px; border-bottom: 2px solid var(--tinta); }
 .lembar-atas .tajuk { display: flex; align-items: center; gap: 10px; margin-bottom: 11px; }
 .lembar-atas h3 {
@@ -505,6 +512,37 @@ body.kb-open .btn.blok-bawah, body.tanpa-bar .btn.blok-bawah { bottom: 12px; }
 .tanda.usul  { border-style: dashed; color: var(--tunggu); border-color: var(--tunggu); }
 .tanda.mati  { color: var(--sinyal); border-color: var(--sinyal); text-decoration: line-through; }
 .tanda.admin { background: var(--tinta); border-color: var(--tinta); color: var(--blok); }
+/* Status nota satu order di Riwayat sales: putus-putus = belum, garis penuh =
+   sebagian barang, blok tinta = semua barang sudah dibuatkan nota. */
+.tanda.nota-pending  { border-style: dashed; color: var(--tunggu); border-color: var(--tunggu); }
+.tanda.nota-sebagian { color: var(--tunggu); border-color: var(--tunggu); }
+.tanda.nota-sudah    { background: var(--tinta); border-color: var(--tinta); color: var(--blok); }
+
+/* ---------- Riwayat sales: saringan periode & status ---------- */
+.saring-riwayat { display: grid; gap: 10px; margin-bottom: 12px; }
+.saring-riwayat .saring { margin-top: 0; }
+.periode {
+  display: grid; grid-template-columns: 44px minmax(0, 1fr) 44px;
+  align-items: center; gap: 8px;
+}
+.periode .geser {
+  width: 44px; height: 44px; display: grid; place-items: center;
+  background: none; border: 2px solid var(--garis-kuat); border-radius: 0;
+  color: var(--tinta); cursor: pointer;
+  transition: transform .12s var(--tekan);
+}
+.periode .geser:active:not(:disabled) { transform: scale(.94); }
+.periode .geser:disabled { opacity: .35; cursor: default; }
+.periode-teks { text-align: center; min-width: 0; }
+.periode-teks b {
+  display: block; font-family: var(--stensil); font-weight: 400;
+  font-size: 20px; line-height: 1.08; text-transform: uppercase; overflow-wrap: anywhere;
+}
+.periode-teks span {
+  display: block; margin-top: 4px;
+  font-size: 11px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase;
+  color: var(--tinta-2);
+}
 
 /* ---------- Catatan tambahan dari sales ---------- */
 .catatan-daftar { display: grid; gap: 8px; margin-top: 12px; }
@@ -665,6 +703,396 @@ input[type=date]::-webkit-calendar-picker-indicator {
   overflow-wrap: anywhere; letter-spacing: 0; line-height: 1;
 }
 
+/* ============================================================
+   MEJA KERJA ORDER (Admin → Order) — LEMBAR KERJA SEPERTI EXCEL
+   Admin menerima order lalu memindahkannya ke program nota utama.
+   Satu baris per BARANG, garis di setiap sel, nomor baris abu-abu di
+   kiri, kepala kolom & nomor baris membeku saat digulir, baris total
+   di bawah — seperti Excel / Google Sheets, di desktop maupun HP.
+
+   Pengecualian yang disengaja dari aturan "tabel → kartu" di CLAUDE.md:
+   pemilik meminta konsep sheet, juga di HP. HALAMANNYA tetap tidak pernah
+   bergeser ke samping; yang bisa digeser hanya lembar kerja di dalam
+   bingkainya sendiri, seperti aplikasi Google Sheets di HP.
+   ============================================================ */
+
+/* Hanya tab ini yang melebar (body.lebar dipasang admin.js). */
+body.lebar #app, body.lebar .bar { max-width: 1280px; }
+
+.saring-order {
+  display: grid; grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px; margin-bottom: 12px;
+}
+.saring-order > div:nth-child(n+3) { grid-column: 1 / -1; }   /* sales, status, cari selebar kartu */
+/* saringan status nota sejajar dengan isian di sebelahnya */
+.saring-order .saring { margin-top: 0; }
+.saring-order .saring button { min-height: var(--tap); }
+
+.aksi-order { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+/* tombol kecil berdampingan di HP: dirapatkan supaya label tidak terlipat */
+.aksi-order .btn.kecil { letter-spacing: .04em; padding-inline: 10px; white-space: nowrap; }
+
+.info-segar {
+  margin-top: 10px; min-height: 1.4em;
+  font-size: 11px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase;
+  color: var(--tinta-2);
+}
+.info-segar.ada-baru { color: var(--tinta); }
+
+.ringkas.empat { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+/* tiga blok (Riwayat sales): dua angka berdampingan, nilai rupiah selebar kartu */
+.ringkas.tiga { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.ringkas.tiga .sel:last-child { grid-column: 1 / -1; }
+/* masih ada barang yang belum dibuat notanya: blok berganti warna "menunggu" */
+.ringkas .sel.ada-pending { background: var(--tunggu); }
+.ringkas .sel.ada-pending .lbl { color: var(--tunggu-muda); }
+
+.tanda-catatan { display: inline-flex; vertical-align: -2px; margin-left: 6px; color: var(--tunggu); }
+/* catatan dari sales yang BELUM dibaca admin: ikonnya diblok, bukan sekadar diwarnai */
+.tanda-catatan.baru { color: var(--blok); background: var(--tunggu); padding: 1px 2px; }
+
+/* ============================================================
+   LONCENG NOTIFIKASI (admin) — catatan tambahan dari sales
+   ============================================================ */
+/* Lencana: jumlah catatan yang belum dibaca, menempel di lonceng.
+   Satu-satunya pemakaian merah oksida di luar "bahaya": angka notifikasi
+   merah adalah konvensi yang langsung dikenali semua orang. */
+.lencana {
+  display: inline-grid; place-items: center;
+  min-width: 20px; height: 20px; padding: 0 5px;
+  background: var(--sinyal); color: var(--blok);
+  font-size: 11px; font-weight: 800; line-height: 1; letter-spacing: 0;
+  font-variant-numeric: tabular-nums; border-radius: 0;
+}
+.lonceng { position: relative; min-width: 44px; min-height: 40px; padding: 8px 10px; }
+.lonceng .lencana { position: absolute; top: -9px; right: -9px; }
+
+/* Panel daftar: menggantung di bawah header, rata kanan. */
+.panel-notif {
+  position: fixed; z-index: 45;
+  width: min(380px, calc(100vw - 24px));
+  max-height: min(70vh, 520px); overflow: auto;
+  background: var(--kraft-muda); color: var(--tinta);
+  border: 3px solid var(--tinta);
+}
+.pn-kepala {
+  position: sticky; top: 0;
+  display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  padding: 6px 8px 6px 12px; background: var(--tinta); color: var(--blok);
+}
+.pn-kepala b { font-size: 11.5px; letter-spacing: .12em; text-transform: uppercase; }
+.pn-semua {
+  min-height: 36px; padding: 0 6px; cursor: pointer;
+  background: none; border: 0; color: var(--blok);
+  font: inherit; font-size: 12px; font-weight: 700;
+  text-decoration: underline; text-underline-offset: 3px;
+}
+.pn-item {
+  position: relative; display: grid; gap: 3px; width: 100%;
+  padding: 11px 12px 11px 28px; text-align: left; cursor: pointer;
+  background: none; border: 0; border-bottom: 1px solid var(--garis);
+  font: inherit; color: var(--tinta);
+}
+/* titik "belum dibaca" — persegi, seperti semua bentuk di sini */
+.pn-item::before {
+  content: ''; position: absolute; left: 12px; top: 16px;
+  width: 8px; height: 8px; background: var(--sinyal);
+}
+.pn-item:active { background: var(--kraft-tua); }
+.pn-siapa {
+  font-size: 11px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase;
+  color: var(--tinta-2); overflow-wrap: anywhere;
+}
+.pn-teks {
+  font-size: 14px; line-height: 1.4; overflow-wrap: anywhere;
+  display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden;
+}
+.pn-waktu { font-size: 11px; font-weight: 600; color: var(--tinta-2); }
+.pn-kosong { padding: 22px 14px; text-align: center; font-size: 13.5px; color: var(--tinta-2); }
+@media (hover: hover) and (pointer: fine) {
+  .pn-item:hover { background: var(--kraft-tua); }
+}
+
+/* catatan yang belum dibaca di rincian order */
+.catatan-baris.baru { border-color: var(--tunggu); background: var(--tunggu-muda); }
+.catatan-baris .siapa .tanda { margin-right: 6px; padding: 1px 6px; }
+
+@media (min-width: 900px) {
+  .saring-order { grid-template-columns: 1fr 1fr 1fr 1.4fr 1.6fr; }
+  .saring-order > div:nth-child(n+3) { grid-column: auto; }
+  .aksi-order { grid-template-columns: 1.3fr 1fr 1fr 1fr; }
+  .ringkas.empat { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+}
+
+/* --- bingkai lembar kerja: menggulir sendiri, dua arah --- */
+.lembar-kerja {
+  overflow: auto;
+  max-height: max(360px, calc(100dvh - 140px));
+  background: var(--blok);
+  border: 2px solid var(--tinta);
+  -webkit-overflow-scrolling: touch;
+}
+.lembar-kerja:focus-visible { outline: 3px solid var(--tinta); outline-offset: 2px; }
+
+.sheet {
+  border-collapse: separate;   /* wajib supaya kepala & nomor baris bisa membeku */
+  border-spacing: 0;
+  min-width: 100%;
+  font-size: 14px;
+  font-variant-numeric: tabular-nums;
+}
+/* garis di setiap sel — inilah yang membuatnya lembar kerja, bukan daftar */
+.sheet th, .sheet td {
+  white-space: nowrap; text-align: left;
+  padding: 7px 10px;
+  border-right: 1px solid var(--garis);
+  border-bottom: 1px solid var(--garis);
+}
+.sheet th:last-child, .sheet td:last-child { border-right: 0; }
+.sheet .ang { text-align: right; }
+
+/* kepala kolom: blok tinta terbalik, membeku di atas */
+.sheet thead th {
+  position: sticky; top: 0; z-index: 2;
+  background: var(--tinta); color: var(--blok);
+  border-right-color: var(--tinta-2);
+  font-size: 10.5px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase;
+}
+
+/* nomor baris: kolom abu di kiri seperti Excel, membeku saat digeser */
+.sheet .k-nomor {
+  position: sticky; left: 0; z-index: 1;
+  min-width: 44px; padding-inline: 6px; text-align: center;
+  background: var(--kraft-tua); color: var(--tinta-2);
+  font-size: 11.5px; font-weight: 700;
+  border-right: 2px solid var(--garis-kuat);
+}
+.sheet thead .k-nomor { z-index: 3; background: var(--tinta); color: var(--blok); }
+
+.sheet .k-toko { font-weight: 700; }
+.sheet .k-sub { font-weight: 700; }
+.sheet .ket { font-size: 11.5px; color: var(--tinta-2); margin-left: 6px; }
+
+/* satu order dipisah dari order berikutnya oleh garis tinta tebal */
+.sheet tbody tr.awal-order td { border-top: 2px solid var(--tinta); }
+.sheet tbody tr:first-child td { border-top: 0; }
+
+.sheet tbody tr { cursor: cell; }
+@media (hover: hover) and (pointer: fine) {
+  .sheet tbody tr:hover td { background: var(--kraft-muda); }
+  .sheet tbody tr:hover .k-nomor { background: var(--kraft-tua); }
+}
+
+/* order baru: diblok seperti pemformatan bersyarat di Excel */
+.sheet tbody tr.baru td { background: var(--tunggu-muda); }
+.sheet tbody tr.baru .k-nomor {
+  background: var(--tinta); color: var(--blok);
+  font-size: 10.5px; letter-spacing: .08em;
+}
+
+/* baris aktif: nomor barisnya menyala, seperti kepala baris sel aktif di Excel */
+.sheet tbody tr.terpilih td { background: var(--kraft-muda); }
+.sheet tbody tr.terpilih .k-nomor { background: var(--tinta-2); color: var(--blok); }
+
+/* nomor order: pintu ke rincian order */
+.buka-order {
+  display: inline-flex; align-items: center;
+  font: inherit; font-size: 12.5px; font-weight: 700; letter-spacing: .06em;
+  color: var(--tinta); background: none; border: 0; padding: 0; cursor: pointer;
+  text-decoration: underline; text-decoration-thickness: 2px; text-underline-offset: 3px;
+}
+
+/* barang yang sudah dibuat notanya: tinta tipis, supaya yang Pending menonjol */
+.sheet tbody tr.sudah td,
+.sheet tbody tr.sudah .buka-order { color: var(--tinta-2); }
+
+/* --- status nota: centang di ujung baris. Kolomnya MEMBEKU DI KANAN,
+   jadi di HP centangnya selalu terjangkau tanpa menggeser lembar. --- */
+.sheet .k-cek {
+  position: sticky; right: 0; z-index: 1;
+  padding-block: 0; padding-inline: 8px 10px;
+  background: var(--blok);
+  border-left: 2px solid var(--garis-kuat);
+}
+.sheet thead .k-cek,
+.sheet tfoot .k-cek { z-index: 3; background: var(--tinta); border-left-color: var(--tinta-2); }
+
+.cek-nota {
+  position: relative;
+  display: flex; align-items: center; gap: 8px;
+  min-height: 34px; cursor: pointer; user-select: none;
+  font-size: 11px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase;
+  color: var(--tunggu);
+}
+/* kotak centang asli tetap ada (bisa difokus & dibacakan) tapi tak terlihat,
+   dan menutupi seluruh label: seluruh sel bisa diketuk */
+.cek-nota input {
+  position: absolute; inset: 0; width: 100%; height: 100%;
+  margin: 0; opacity: 0; cursor: pointer;
+}
+/* Pending = kotak bergaris putus-putus warna "menunggu" (sama dengan tanda usulan);
+   Sudah = blok tinta penuh bercentang. Bentuknya beda, bukan hanya warnanya. */
+.cek-nota .kotak {
+  display: grid; place-items: center; flex: 0 0 auto;
+  width: 22px; height: 22px;
+  border: 2px dashed var(--tunggu); background: var(--blok); color: transparent;
+  transition: transform .12s var(--tekan);
+}
+.cek-nota .kotak svg { width: 16px; height: 16px; }
+.cek-nota input:checked + .kotak {
+  border-style: solid; border-color: var(--tinta);
+  background: var(--tinta); color: var(--blok);
+}
+.cek-nota input:checked ~ .teks { color: var(--tinta); }
+.cek-nota input:focus-visible + .kotak { outline: 3px solid var(--tinta); outline-offset: 2px; }
+.cek-nota input:disabled ~ * { opacity: .45; }
+.cek-nota:active .kotak { transform: scale(.92); }
+
+/* --- no nota: sel isian, admin menempel nomor dari program nota utama --- */
+.sheet .k-nota { padding: 3px 6px; }
+.sheet .isi-nota {
+  width: 11em; min-height: 34px; padding: 4px 8px;
+  font-size: 16px;                 /* WAJIB 16px: cegah zoom otomatis iOS */
+  font-weight: 700; letter-spacing: .02em;
+  border: 2px solid var(--garis); background: var(--blok);
+}
+.sheet .isi-nota:focus { border-color: var(--tinta); background: var(--blok-fokus); }
+/* nomor nota lama pada barang yang diubah: dicoret, seperti tanda "mati" */
+.sheet .isi-nota.basi {
+  color: var(--sinyal);
+  text-decoration: line-through; text-decoration-thickness: 2px;
+}
+.sheet .k-nota.tersimpan .isi-nota { border-color: var(--tinta); background: var(--kraft-tua); }
+
+/* baris total: selalu terlihat di dasar bingkai, seperti bilah status */
+.sheet tfoot td {
+  position: sticky; bottom: 0; z-index: 2;
+  background: var(--tinta); color: var(--blok);
+  font-weight: 700; border-right-color: var(--tinta-2); border-bottom: 0;
+}
+.sheet tfoot .k-nomor { z-index: 3; background: var(--tinta); }
+
+/* HP: baris setinggi ibu jari, nomor order tetap mudah diketuk */
+@media (pointer: coarse) {
+  .sheet td { padding-block: 10px; }
+  .buka-order { min-height: 44px; margin-block: -10px; }
+  .cek-nota, .sheet .isi-nota { min-height: 44px; }
+}
+/* HP: kolom centang yang membeku cukup kotaknya saja, supaya lembar
+   tetap lega; kata Sudah/Pending sudah dibacakan lewat aria-label. */
+@media (max-width: 599px) {
+  .cek-nota .teks { display: none; }
+  .sheet .k-cek { padding-inline: 11px; }
+}
+
+/* Lembar rincian order (ketuk satu baris) */
+.detail-kepala .toko {
+  font-family: var(--stensil); font-size: 19px; line-height: 1.05;
+  text-transform: uppercase; letter-spacing: .01em; overflow-wrap: anywhere;
+}
+.detail-isi { border: 2px solid var(--tinta); margin: 12px 0; }
+/* status nota per barang — rincian order di Admin maupun di Riwayat sales */
+.riwayat-isi .ket.ket-nota { font-weight: 700; color: var(--tunggu); }
+.riwayat-isi .ket.ket-nota.sudah { color: var(--tinta); }
+
+/* ---------- Pasang sebagai aplikasi (layar masuk) ---------- */
+.pasang-aplikasi { margin-top: 22px; text-align: center; }
+.pasang-aplikasi:empty { display: none; }
+
+/* ============================================================
+   MODE DESKTOP ADMIN — komputer (≥ 1024px), peran admin saja
+   Menu pindah ke samping kiri, semua halaman selebar jendela,
+   Toko/Barang/Akun jadi tabel lebar, Buat Order dua kolom.
+   Di HP/tablet dan untuk sales TIDAK ada yang berubah.
+   Sepenuhnya CSS: berganti sendiri saat jendela diubah ukurannya.
+   ============================================================ */
+.samping, .h1-bagian, .daftar-tabel { display: none; }
+
+/* tabel daftar (Toko/Barang/Akun) — hanya tampil di mode desktop */
+.tabel-master tbody tr { cursor: pointer; }
+.tabel-master .k-nama { font-weight: 700; }
+.tabel-master .k-panjang { white-space: normal; min-width: 220px; max-width: 360px; }
+.tabel-master .k-status .tanda + .tanda { margin-left: 6px; }
+.tabel-master .ket-aktif {
+  font-size: 11px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase;
+  color: var(--tinta-2);
+}
+.tabel-master tbody tr:focus-visible td { outline: 3px solid var(--tinta); outline-offset: -3px; }
+.tabel-akun tbody tr { cursor: default; }
+.tabel-akun .k-aksi { white-space: nowrap; }
+.tabel-akun .k-aksi .btn { width: auto; display: inline-flex; margin-right: 6px; }
+
+@media (min-width: 1024px) {
+  body.peran-admin #app,
+  body.peran-admin.lebar #app {
+    max-width: none;
+    display: grid;
+    grid-template-columns: 220px minmax(0, 1fr);
+    grid-template-rows: auto 1fr;
+  }
+
+  /* menu samping: ladang tinta, yang aktif dibalik — sama dengan .tab button.aktif */
+  body.peran-admin .samping {
+    display: flex; flex-direction: column; gap: 2px;
+    grid-column: 1; grid-row: 1 / -1;
+    position: sticky; top: 0; height: 100dvh; overflow-y: auto;
+    padding: 16px 12px;
+    background: var(--tinta); color: var(--blok);
+  }
+  .samping-merek {
+    font-family: var(--stensil); font-weight: 400; font-size: 22px; line-height: 1.05;
+    text-transform: uppercase; letter-spacing: .02em;
+    padding: 2px 10px 18px; color: var(--blok);
+  }
+  body.peran-admin .samping a {
+    display: flex; align-items: center; gap: 10px;
+    min-height: 44px; padding: 10px 12px;
+    color: var(--kraft-pudar); text-decoration: none;
+    font-size: 12px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase;
+  }
+  body.peran-admin .samping a.aktif { background: var(--kraft-muda); color: var(--tinta); }
+  body.peran-admin .samping a:focus-visible { outline: 3px solid var(--blok); outline-offset: -3px; }
+
+  body.peran-admin .atas,
+  body.peran-admin .isi { grid-column: 2; }
+  body.peran-admin .isi { padding: 20px 24px 40px; }
+  body.peran-admin .h1-bagian { display: inline; }
+
+  /* menu samping menggantikan bar bawah & tab di halaman Admin */
+  body.peran-admin .bar,
+  body.peran-admin #tab { display: none; }
+  body.peran-admin .btn.blok-bawah { bottom: 12px; }
+
+  /* Toko / Barang / Akun: tabel lebar, bukan kartu */
+  body.peran-admin .daftar-kartu { display: none; }
+  body.peran-admin .daftar-tabel { display: block; }
+
+  /* Akun: tambah akun di kiri, daftar di kanan */
+  body.peran-admin .tata-akun {
+    display: grid; grid-template-columns: minmax(300px, 360px) minmax(0, 1fr);
+    gap: 20px; align-items: start;
+  }
+
+  /* Buat order: toko, catatan & total di kiri; barang di kanan */
+  body.peran-admin .buat-order .form-order {
+    display: grid; grid-template-columns: minmax(300px, 380px) minmax(0, 1fr);
+    grid-template-areas: "toko barang" "catatan barang" "total barang";
+    column-gap: 20px; align-items: start;
+  }
+  body.peran-admin .buat-order .fo-toko    { grid-area: toko; }
+  body.peran-admin .buat-order .fo-barang  { grid-area: barang; }
+  body.peran-admin .buat-order .fo-catatan { grid-area: catatan; }
+  body.peran-admin .buat-order .fo-total   { grid-area: total; }
+
+  /* lembar (ubah order, rincian, tanya) muncul di tengah layar, bukan dari bawah */
+  body.peran-admin .tirai { align-items: center; }
+  body.peran-admin .tirai .lembar { border: 3px solid var(--tinta); }
+}
+
+@media (hover: hover) and (pointer: fine) {
+  body.peran-admin .samping a:not(.aktif):hover { background: var(--tinta-2); color: var(--blok); }
+}
+
 /* ---------- Gerak dikurangi ---------- */
 @media (prefers-reduced-motion: reduce) {
   .putar { animation-duration: 2s; }
@@ -771,3 +1199,18 @@ table.dasbor-tabel .ket-kecil {
   color: var(--tinta-2); margin-top: 2px;
 }
 table.dasbor-tabel .kode { margin-left: 6px; }
+
+/* Kota di bawah nama toko pada meja kerja admin: satu baris kecil di sel
+   yang sama, bukan kolom sendiri — beberapa toko bernama sama persis di
+   kota berbeda, jadi kota bagian dari identitasnya. */
+.k-toko .kota-kecil {
+  display: block; margin-top: 2px;
+  font-size: 10.5px; font-weight: 700;
+  letter-spacing: .1em; text-transform: uppercase;
+  color: var(--tinta-2);
+}
+.detail-kepala .kota {
+  font-size: 11.5px; font-weight: 700;
+  letter-spacing: .12em; text-transform: uppercase;
+  color: var(--tinta-2); margin-top: 2px;
+}

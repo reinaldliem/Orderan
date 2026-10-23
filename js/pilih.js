@@ -2,7 +2,8 @@
 // Sengaja BUKAN <datalist> — datalist tidak jalan di iPhone.
 // Dipakai untuk daftar toko & barang, dan boleh ketik nama baru.
 
-import { esc } from './util.js';
+import { ikon } from './ikon.js';
+import { esc, aturBeku } from './util.js';
 
 /**
  * @param {object} o
@@ -54,11 +55,11 @@ export function buatPilih(o) {
     const tirai = document.createElement('div');
     tirai.className = 'tirai';
     tirai.innerHTML = `
-      <div class="lembar" role="dialog" aria-modal="true">
+      <div class="lembar lembar-pilih" role="dialog" aria-modal="true">
         <div class="lembar-atas">
           <div class="tajuk">
             <h3>${esc(o.judul || o.label)}</h3>
-            <button type="button" class="tutup" aria-label="Tutup">&times;</button>
+            <button type="button" class="tutup" aria-label="Tutup">${ikon('silang', 18)}</button>
           </div>
           <input type="text" class="cari" placeholder="Ketik untuk mencari…"
                  autocomplete="off" enterkeyhint="done">
@@ -129,6 +130,10 @@ export function buatPilih(o) {
 
     function tutup() {
       tirai.remove();
+      // Kembalikan posisi halaman SEKARANG, bukan menunggu penjaga di util.js:
+      // langkah berikutnya (mis. pindah ke isian jumlah) harus terjadi di
+      // halaman yang sudah kembali ke tempatnya.
+      aturBeku();
     }
 
     cari.addEventListener('input', isiDaftar);

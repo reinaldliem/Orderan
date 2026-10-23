@@ -12,14 +12,18 @@ export async function gambar(isi, ctx) {
   await segarkanMaster();
 
   const tgl = hariIni();
-  const draf = bacaDraf(tgl);
+  const uid = status.profil?.id;
+  const draf = bacaDraf(tgl, uid);
 
   // Baris kode batch: tanggal dan kode sales, kecil, di paling atas —
   // seperti kode cetak di pojok karung. Bukan kartu tersendiri.
   const kode = [tanggalPanjang(tgl), status.profil?.kode_sales || status.profil?.nama]
     .filter(Boolean).map(esc).join(' · ');
 
+  // .buat-order: di komputer (mode desktop admin) form disusun dua kolom —
+  // hanya di halaman ini, bukan di lembar "Ubah order" yang memakai form sama.
   isi.innerHTML = `
+    <div class="buat-order">
     <div class="baris-batch">${ikon('tanggal', 15)}<span>${kode}</span></div>
     <div id="slot-form"></div>
     <button type="button" class="btn hijau blok-bawah" id="btn-simpan">
@@ -27,6 +31,7 @@ export async function gambar(isi, ctx) {
     </button>
     <div class="bantuan" style="text-align:center;margin-top:12px">
       Isian tersimpan sementara di HP — aman kalau aplikasi tertutup.
+    </div>
     </div>`;
 
   // ---------------- draf ----------------
@@ -42,6 +47,7 @@ export async function gambar(isi, ctx) {
         if (!adaIsi) { localStorage.removeItem(KUNCI_DRAF); return; }
         localStorage.setItem(KUNCI_DRAF, JSON.stringify({
           tgl,
+          uid,   // draf hanya kembali untuk akun yang sama (HP bisa dipakai bergantian)
           toko: d.toko_id || d.toko_nama ? { id: d.toko_id, nama: d.toko_nama } : null,
           catatan: d.catatan,
           item: d.item,
@@ -84,10 +90,16 @@ export async function gambar(isi, ctx) {
   });
 }
 
-function bacaDraf(tgl) {
+/**
+ * Draf sengaja tetap di localStorage (bukan per tab seperti sesi): kalau
+ * browser HP menutup tab saat sales mengetik order di depan pelanggan,
+ * isiannya kembali setelah masuk lagi. Tapi hanya untuk AKUN YANG SAMA —
+ * draf akun lain di HP yang sama tidak pernah ditampilkan.
+ */
+function bacaDraf(tgl, uid) {
   try {
     const d = JSON.parse(localStorage.getItem(KUNCI_DRAF) || 'null');
-    if (!d || d.tgl !== tgl) return null;
+    if (!d || d.tgl !== tgl || !uid || d.uid !== uid) return null;
     const adaIsi = d.toko || (d.item || []).some((i) => i.barang_nama || i.qty);
     return adaIsi ? d : null;
   } catch {
@@ -96,6 +108,8 @@ function bacaDraf(tgl) {
 }
 
 function tampilkanBerhasil(isi, hasil, ctx) {
+  // Admin tidak punya halaman Riwayat: ordernya terlihat di Admin → Order.
+  const adminkah = ctx.status?.profil?.peran === 'admin';
   // Order yang selesai dicap, bukan diberi tanda centang hijau raksasa:
   // nomornya distensil besar, totalnya duduk di blok terbalik.
   isi.innerHTML = `
@@ -108,7 +122,9 @@ function tampilkanBerhasil(isi, hasil, ctx) {
       </div>
       <button type="button" class="btn" id="btn-lagi">${ikon('tambah', 20)}Buat order lagi</button>
       <div style="height:10px"></div>
-      <a class="btn abu" href="#/riwayat">Lihat order saya</a>
+      ${adminkah
+        ? '<a class="btn abu" href="#/admin">Lihat di meja order</a>'
+        : '<a class="btn abu" href="#/riwayat">Lihat order saya</a>'}
     </div>`;
 
   isi.querySelector('#btn-lagi').addEventListener('click', () => gambar(isi, ctx));

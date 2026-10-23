@@ -6,6 +6,16 @@ import { CONFIG } from './config.js';
 const KUNCI_SESI = 'order-sesi-v1';
 
 /**
+ * Sesi disimpan PER TAB (sessionStorage), bukan permanen (localStorage):
+ * menutup tab / browser = harus masuk lagi. Muat ulang tetap masuk.
+ * Permintaan pemilik — sebelumnya membuka situs dari riwayat browser
+ * langsung masuk tanpa PIN.
+ */
+const tempatSesi = (() => {
+  try { return window.sessionStorage; } catch { return null; }
+})();
+
+/**
  * Berapa lama satu sesi berlaku, dihitung sejak MASUK — bukan sejak
  * pemakaian terakhir. Lewat batas ini token tidak diperpanjang lagi dan
  * pengguna wajib memasukkan username + PIN lagi.
@@ -15,17 +25,46 @@ const KUNCI_SESI = 'order-sesi-v1';
 export const SESI_BERLAKU_JAM = 12;
 const SESI_BERLAKU_MS = SESI_BERLAKU_JAM * 60 * 60 * 1000;
 
+/**
+ * Aplikasi yang TIDAK BERJALAN selama ini harus dimasuki lagi (pemilik,
+ * 5 Okt 2026). "Tidak berjalan" = HP membekukan atau mematikan browser:
+ * layar mati, pindah ke aplikasi lain, browser di-"clear". Di HP, browser
+ * mengembalikan tab beserta sessionStorage-nya setelah dimatikan, jadi
+ * sessionStorage saja tidak cukup.
+ *
+ * Dinilai di HP sendiri, BUKAN di server: sales yang aktif memakai aplikasi
+ * tanpa sinyal tetap dianggap berjalan. Di komputer, tab yang masih terbuka
+ * tetap berjalan walau tertutup jendela lain.
+ */
+export const BATAS_DIAM_MENIT = 30;
+const BATAS_DIAM_MS = BATAS_DIAM_MENIT * 60 * 1000;
+const KUNCI_HIDUP = 'order-hidup-v1';   // kapan halaman ini terakhir berjalan (ms)
+
 let sesi = null;
 let profil = null;
 
-/** true = sesi putus karena habis waktunya, bukan karena tombol Keluar. */
-let habisSendiri = false;
+/**
+ * Kenapa sesi terakhir putus — bukan karena tombol Keluar:
+ *   'habis'    = lewat batas SESI_BERLAKU_JAM
+ *   'diam'     = aplikasi tidak berjalan lebih dari BATAS_DIAM_MENIT
+ *   'perangkat'= akun ini masuk di perangkat ke-3; perangkat ini yang paling
+ *                lama tidak dipakai, jadi dikeluarkan server (maks 2 per akun)
+ */
+let alasanKeluar = null;
 
 try {
-  sesi = JSON.parse(localStorage.getItem(KUNCI_SESI) || 'null');
+  sesi = JSON.parse(tempatSesi?.getItem(KUNCI_SESI) || 'null');
 } catch {
   sesi = null;
 }
+
+// Sesi versi lama tersimpan permanen di localStorage. Dibuang dan dicabut
+// di server SEKALI; setelah itu semua orang masuk lagi satu kali.
+try {
+  const lama = JSON.parse(localStorage.getItem(KUNCI_SESI) || 'null');
+  localStorage.removeItem(KUNCI_SESI);
+  if (lama?.access_token) cabutDiServer(lama.access_token);
+} catch { /* abaikan */ }
 
 /**
  * Sesi tanpa penanda `mulai` berasal dari versi sebelum fitur ini ada.
@@ -36,44 +75,67 @@ function lewatBatas(s) {
   return !s || typeof s.mulai !== 'number' || Date.now() - s.mulai >= SESI_BERLAKU_MS;
 }
 
-/** Buang sesi yang sudah habis. Mengembalikan true kalau memang dibuang. */
+function terlaluLamaDiam() {
+  let t = 0;
+  try { t = Number(tempatSesi?.getItem(KUNCI_HIDUP)) || 0; } catch { /* abaikan */ }
+  return t > 0 && Date.now() - t >= BATAS_DIAM_MS;
+}
+
+/** Catat bahwa halaman ini sedang berjalan. Dipanggil tiap menit & saat ditinggal. */
+export function tandaHidup() {
+  if (!sesi) return;
+  try { tempatSesi?.setItem(KUNCI_HIDUP, String(Date.now())); } catch { /* abaikan */ }
+}
+
+/** Buang sesi yang sudah habis / terlalu lama diam. True kalau memang dibuang. */
 function buangKalauHabis() {
-  if (!sesi || !lewatBatas(sesi)) return false;
+  if (!sesi) return false;
+  const habis = lewatBatas(sesi);
+  if (!habis && !terlaluLamaDiam()) return false;
   const token = sesi.access_token;
   simpanSesi(null);
   profil = null;
-  habisSendiri = true;
+  alasanKeluar = habis ? 'habis' : 'diam';
   cabutDiServer(token);   // supaya refresh_token-nya tidak bisa dipakai lagi
   return true;
 }
 
-/** Cabut token di server. Sengaja tidak ditunggu — sesi lokal sudah hilang. */
+/**
+ * Cabut token di server. Sengaja tidak ditunggu — sesi lokal sudah hilang.
+ * scope=local WAJIB: tanpa itu Supabase mengeluarkan SEMUA perangkat akun
+ * ini, padahal satu akun boleh aktif di 2 perangkat.
+ */
 function cabutDiServer(token) {
   if (!token) return;
   try {
-    fetch(CONFIG.URL + '/auth/v1/logout', {
+    fetch(CONFIG.URL + '/auth/v1/logout?scope=local', {
       method: 'POST',
       headers: { apikey: CONFIG.KUNCI_PUBLIK, Authorization: 'Bearer ' + token },
     }).catch(() => {});
   } catch { /* tidak ada internet — biarkan, sesi lokal sudah dihapus */ }
 }
 
-/** Sesi terakhir putus karena habis waktunya? Dipakai layar masuk. */
+/** Kenapa sesi terakhir putus: 'habis' | 'diam' | 'perangkat' | null. Dipakai layar masuk. */
 export function sesiHabis() {
-  return habisSendiri;
+  return alasanKeluar;
 }
 
 /** Dipanggil layar masuk setelah pemberitahuannya ditampilkan. */
 export function lupakanSesiHabis() {
-  habisSendiri = false;
+  alasanKeluar = null;
 }
 
 buangKalauHabis();
 
 function simpanSesi(s) {
   sesi = s;
-  if (s) localStorage.setItem(KUNCI_SESI, JSON.stringify(s));
-  else localStorage.removeItem(KUNCI_SESI);
+  try {
+    if (s) tempatSesi?.setItem(KUNCI_SESI, JSON.stringify(s));
+    else {
+      tempatSesi?.removeItem(KUNCI_SESI);
+      tempatSesi?.removeItem(KUNCI_HIDUP);
+    }
+  } catch { /* penyimpanan diblokir: sesi tetap hidup di memori tab ini */ }
 }
 
 function pesanGagal(data, status) {
@@ -177,8 +239,9 @@ export async function masuk(username, pin) {
     kedaluwarsa: Date.now() + (d.expires_in ?? 3600) * 1000,
     mulai: Date.now(),   // titik hitung batas sesi
   });
+  tandaHidup();          // jangan sampai catatan sesi sebelumnya di tab ini terbawa
 
-  habisSendiri = false;
+  alasanKeluar = null;
   profil = null;
   const pr = await profilSaya();
   if (!pr) {
@@ -196,8 +259,65 @@ export async function keluar() {
   const token = sesi?.access_token;
   simpanSesi(null);
   profil = null;
-  habisSendiri = false;   // keluar sendiri, bukan kehabisan waktu
+  alasanKeluar = null;    // keluar sendiri, bukan kehabisan waktu
   cabutDiServer(token);
+}
+
+/**
+ * Lapor ke server bahwa tab ini masih hidup, sekaligus tanya apakah sesinya
+ * masih berlaku. Jawaban server (cek_sesi):
+ *   'aktif'       -> lanjut
+ *   'dikeluarkan' -> akun ini masuk di perangkat ke-3 dan perangkat ini yang
+ *                    paling lama tidak dipakai (maks 2 perangkat per akun)
+ *   'ditutup'     -> halaman ini sudah ditinggalkan > 2 menit lalu dibuka lagi
+ *                    (mis. tab yang dipulihkan browser) -> wajib masuk lagi
+ * Tanpa internet dianggap masih berlaku, supaya sales di lapangan tidak terlempar.
+ */
+export async function cekPerangkat() {
+  if (!sesi) return false;
+  let st;
+  try {
+    st = await rpc('cek_sesi');
+  } catch {
+    return !!sesi;   // gagal tersambung / token ditolak: diurus di tempat lain
+  }
+  if (st === 'dikeluarkan') {
+    simpanSesi(null);   // sesinya sudah dihapus server, tidak perlu logout
+    profil = null;
+    alasanKeluar = 'perangkat';
+    return false;
+  }
+  if (st === 'ditutup') {
+    const token = sesi?.access_token;
+    simpanSesi(null);
+    profil = null;
+    alasanKeluar = null;
+    cabutDiServer(token);
+    return false;
+  }
+  return true;
+}
+
+/**
+ * Halaman ditinggalkan (tab ditutup, pindah situs, atau muat ulang — browser
+ * tidak membedakannya). Tandai sesinya "tertutup" di server supaya kalau ada
+ * login baru, sesi inilah yang dibuang lebih dulu — bukan HP yang masih
+ * dipakai. Muat ulang aman: laporan berikutnya dalam 2 menit membatalkan tanda.
+ */
+export function tandaiTutup() {
+  if (!sesi?.access_token) return;
+  try {
+    fetch(CONFIG.URL + '/rest/v1/rpc/tutup_sesi', {
+      method: 'POST',
+      keepalive: true,   // tetap terkirim walau halamannya sedang ditutup
+      headers: {
+        apikey: CONFIG.KUNCI_PUBLIK,
+        Authorization: 'Bearer ' + sesi.access_token,
+        'Content-Type': 'application/json',
+      },
+      body: '{}',
+    }).catch(() => {});
+  } catch { /* abaikan */ }
 }
 
 export function adaSesi() {
@@ -214,17 +334,42 @@ export async function profilSaya() {
   return profil;
 }
 
+/** Supabase memberi paling banyak 1.000 baris per permintaan (bawaan). */
+const PER_HALAMAN = 1000;
+
 /**
  * SELECT sederhana. Contoh:
  *   pilih('barang', { select: 'id,nama', aktif: 'eq.true', order: 'nama.asc', limit: 500 })
+ *
+ * Diambil bertahap per 1.000 baris sampai `limit` (tanpa limit = semua).
+ * Tanpa ini, hasil di atas 1.000 baris TERPOTONG DIAM-DIAM oleh server.
+ * Karena itu `order` harus unik (tambahkan id sebagai pemutus seri), supaya
+ * tidak ada baris yang terlewat atau terulang di antara dua halaman.
  */
 export async function pilih(tabel, params = {}) {
   const q = new URLSearchParams();
+  let batas = Infinity;
   for (const [k, v] of Object.entries(params)) {
-    if (v !== undefined && v !== null && v !== '') q.append(k, v);
+    if (v === undefined || v === null || v === '') continue;
+    if (k === 'limit') batas = Number(v);
+    else if (k === 'offset') continue;   // diatur di bawah
+    else q.append(k, v);
   }
   if (!q.has('select')) q.set('select', '*');
-  return kirim(`/rest/v1/${tabel}?${q.toString()}`);
+  let mulaiDari = Number(params.offset) || 0;
+
+  const hasil = [];
+  while (hasil.length < batas) {
+    const ambil = Math.min(PER_HALAMAN, batas - hasil.length);
+    q.set('limit', String(ambil));
+    q.set('offset', String(mulaiDari));
+    const baris = await kirim(`/rest/v1/${tabel}?${q.toString()}`);
+    if (!Array.isArray(baris)) return baris;
+    for (const r of baris) hasil.push(r);
+    if (baris.length < ambil) break;
+    mulaiDari += baris.length;
+  }
+  return hasil;
 }
 
 /** Panggil fungsi RPC di database. */

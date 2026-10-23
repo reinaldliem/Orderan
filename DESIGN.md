@@ -250,9 +250,40 @@ kostum, bukan sistem.
 
 Satu kolom, dikunci **560px** dan dipusatkan; di bawah itu aplikasi
 mengisi penuh lebar layar. Lebar ini dipilih dari pemakaian, bukan dari
-titik putus: aplikasinya tetap satu kolom di layar lebar karena
-admin pun memeriksa order dengan cara yang sama seperti sales
-membuatnya.
+titik putus.
+
+**Satu pengecualian: tab Order di Admin.** Di sana admin menerima order
+lalu memindahkannya ke program nota, dan butuh melihat banyak baris
+sekaligus. Hanya tab itu yang melebar sampai **1280px** (`body.lebar`,
+dipasang dan dilepas oleh admin.js / app.js). Tab Toko, Barang, Akun dan
+semua halaman sales tetap 560px.
+
+**Mode desktop admin (komputer, ≥ 1024px).** Untuk peran admin saja
+(`body.peran-admin`) dan sepenuhnya lewat CSS, sehingga berganti sendiri
+saat jendela diubah ukurannya:
+- Kolom 560px dilepas. Aplikasi menjadi grid **menu samping 220px |
+  isi selebar jendela**.
+- **Menu samping**: ladang `tinta`, merek "ORDER SALES" (Anton 22px), dan
+  lima tautan uppercase 12px dengan target 44px (Order · Buat order · Toko ·
+  Barang · Akun). Yang aktif dibalik ke `kraft-muda` + `tinta`, sama
+  logikanya dengan `.tab button.aktif`; yang tidak aktif `kraft-pudar`.
+- Bar bawah dan tab internal Admin disembunyikan. Judul header mendapat
+  " · Toko" dan seterusnya.
+- Isi diberi padding 20px 24px.
+- Toko, Barang, dan Akun tampil sebagai **tabel lebar** (`.sheet`: garis
+  sel, kepala membeku), bukan kartu. Akun dua kolom: tambah di kiri,
+  daftar di kanan.
+- **Buat Order dua kolom**: Toko, Catatan, Total di kiri (300–380px), Barang
+  di kanan.
+- Lembar (ubah, rincian, tanya) muncul **di tengah layar** berbingkai tinta
+  3px, bukan dari bawah.
+- Sales dan semua layar < 1024px tidak berubah.
+
+**Aplikasi terpasang (PWA).** Ikon = favicon (kotak `tinta`, nota `blok`).
+Versi maskable diperkecil 72% supaya utuh di dalam lingkaran aman. Tanpa
+sinyal, layar "Tidak ada koneksi" (latar `kraft`, tombol tinta "Coba lagi")
+dibuat oleh `sw.js`. `sw.js` tidak menyimpan kode aplikasi, jadi tampilan
+selalu versi terbaru.
 
 Irama jaraknya lima langkah: **8px** untuk jarak ikon ke teks, **10px**
 untuk kelompok rapat (tombol berdampingan, antar baris barang), **12px**
@@ -263,10 +294,11 @@ margin kiri-kanan 14px, menyusut jadi 11px di bawah 375px.
 Jarak di atas judul selalu lebih besar daripada di bawahnya, sehingga
 judul menempel pada isinya, bukan mengambang di antara dua bagian.
 
-Satu titik putus saja: **374px**. Di bawahnya, huruf stensil menyusut
+Titik putus umum: **374px**. Di bawahnya, huruf stensil menyusut
 (44→38px pada layar masuk, 34→28px pada blok total), sel ringkasan
-dibiarkan membungkus, dan renggang PIN dikurangi. Tidak ada titik putus
-ke atas — tata letaknya memang tidak berubah.
+dibiarkan membungkus, dan renggang PIN dikurangi. Meja order Admin
+adalah lembar kerja yang menggulir di dalam bingkainya sendiri, di semua
+lebar layar (lihat Components → Meja Order).
 
 ### Named Rules
 
@@ -370,6 +402,94 @@ Komponen penanda sistem ini. Ladang tinta penuh lebar, label kecil
 nilainya berubah, angkanya **mencetak ulang**: dari `blur(2px)` opacity
 .55 menjadi tajam dalam 160ms. Ia tidak pernah menggeser, tidak pernah
 menghitung naik, tidak pernah memantul.
+
+### Meja Order (Admin → Order)
+Tempat admin sales menerima order lalu memindahkannya ke program nota
+utama, disajikan sebagai **lembar kerja seperti Excel** — di desktop
+maupun HP. Website hanya membuat **nomor order**; nomor nota selalu dari
+program nota pemilik — admin menempelnya, website tidak pernah membuatnya.
+- **Satu baris per barang.** Order dua barang = dua baris; tanggal, toko,
+  dan no order diulang di setiap baris. Urutan kolom mengikuti contoh
+  pemilik: # · Tanggal · Sales · Toko · Barang · Jumlah · Harga · Jumlah Harga ·
+  No Order · **Nota** · **No Nota**. Kotak Cari juga mencocokkan nama sales. Tanggal `dd/mm/yyyy`, angka tanpa "Rp"
+  (10.000), seperti Excel.
+- **Kolom Nota (centang)** membeku di **kanan**, jadi di HP selalu
+  terjangkau tanpa menggeser lembar. Pending = kotak 22px bergaris
+  **putus-putus** `tunggu` (bahasa yang sama dengan tanda usulan); Sudah =
+  blok tinta penuh bercentang. Seluruh sel adalah sasaran ketuk (≥ 44px
+  di HP). Di bawah 600px kata SUDAH/PENDING disembunyikan — kotaknya saja.
+  Baris Sudah ditulis `tinta-2` supaya yang Pending menonjol.
+- **Kolom No Nota** = isian 16px bergaris `garis`. Menempel **mengganti**
+  isi sel dan langsung tersimpan; nomor terisi → server menjadikan Sudah.
+  Enter = turun ke baris berikutnya, Esc = batal. Nomor lama pada barang
+  yang diubah setelah bernota tampil **dicoret** merah oksida (`sinyal`),
+  seperti `.tanda.mati`.
+- **Saringan status** Semua / Pending / Sudah (gaya `.saring`, bawaan
+  Pending). Baris yang baru diubah statusnya tidak langsung hilang —
+  hilang saat saringan diganti atau Segarkan, supaya salah centang bisa
+  dibatalkan di tempat.
+- **Ringkasan** empat blok: Order · Baris barang · Pending nota · Total
+  nilai. Blok Pending nota berganti ladang `tunggu` selama masih ada sisa.
+- **Garis di setiap sel** (1px `garis`); satu order dipisah dari order
+  berikutnya oleh garis tinta 2px.
+- **Membeku:** kepala kolom (blok tinta terbalik) di atas, kolom nomor baris
+  (`kraft-tua`) di kiri, baris Total (blok tinta) di dasar bingkai.
+- **Bingkai menggulir sendiri, dua arah.** Halaman tidak pernah bergeser ke
+  samping; di HP lembar kerjanya yang digeser, seperti Google Sheets.
+  Ini pengecualian sadar dari aturan "tabel → kartu" — permintaan pemilik.
+- **Baris aktif:** klik sel → nomor barisnya menyala (`tinta-2`), seperti
+  kepala baris sel aktif di Excel. Teks sel tetap bisa diblok dan disalin.
+  Kursor `cell` di atas lembar.
+- **Order baru** sejak Segarkan terakhir: baris diblok `tunggu-muda`
+  (pemformatan bersyarat) dan nomor barisnya berganti **BARU** (blok tinta).
+  Mengganti saringan tidak menandai apa pun.
+- **No Order** bergaris bawah = pintu ke rincian order (catatan, Ubah,
+  Hapus); juga lewat dobel-klik baris. Di HP tingginya 44px.
+- **Salin tabel** menyalin baris yang tampil sebagai teks bertab, angka
+  polos, supaya kolomnya terpisah saat ditempel di Excel. **Unduh
+  Excel/Google Sheet** juga hanya baris yang tampil; keduanya membawa
+  kolom Status Nota dan No Nota.
+- **Catatan tambahan dari sales** ditandai ikon `catatan` kuning tanah di
+  sebelah nama toko.
+
+### Riwayat sales (Order Saya)
+Sales melihat order miliknya sendiri dan status notanya (hanya membaca;
+status diisi admin di Meja Order).
+- **Saringan dalam satu kartu:** Harian / Mingguan / Bulanan (`.saring`),
+  baris periode `‹ KAMIS, 8 OKT 2026 ›` (tombol 44px, judul Anton 20px,
+  keterangan kecil "Hari ini · diperbarui 13.59"), lalu Semua / Pending /
+  Sudah. Minggu = Senin–Minggu. Tombol maju mati di periode sekarang.
+- **Dibuka di Harian** (pemilik): setiap hari baru riwayat mulai kosong;
+  hari/minggu/bulan sebelumnya lewat tombol mundur.
+- **Ringkasan tiga blok:** Order · Pending nota (ladang `tunggu` selama
+  masih ada) · Nilai order selebar kartu.
+- **Tanda status per order** di baris meta kartu — bentuk, bukan hanya
+  warna: putus-putus `tunggu` = PENDING, garis penuh `tunggu` = NOTA 1/3
+  (sebagian barang), blok tinta = SUDAH NOTA. Order sebagian ikut saringan
+  Pending.
+- **Per barang** di rincian: "Nota FJ-0460" (tinta) atau "Nota pending"
+  (`tunggu`). Nomor nota lama pada barang yang diubah tidak ditampilkan ke
+  sales.
+- Data diambil ulang setiap aplikasi dibuka lagi (status bisa berubah).
+
+### Lonceng Notifikasi (admin)
+Catatan tambahan dari sales (mis. minta revisi harga) yang belum dibaca admin.
+Sengaja ringan — pemilik menolak tab kotak masuk berisi kartu order ("terlalu berat").
+- **Lonceng** di header, di kiri tombol Keluar (`.btn-atas`, 44px), hanya
+  untuk admin. **Lencana** = kotak `sinyal` 20px berisi angka di pojok
+  kanan-atas lonceng — satu-satunya pemakaian merah oksida di luar "bahaya":
+  angka notifikasi merah adalah konvensi yang dikenali semua orang.
+  Diperbarui tiap menit & saat aplikasi dibuka; angka bertambah -> pesan
+  singkat "N catatan baru dari sales — ketuk lonceng di atas".
+- **Panel** menggantung tepat di bawah header, rata kanan, lebar maks 380px,
+  bingkai tinta 3px, kepala tinta "NOTIFIKASI" + "Tandai semua dibaca".
+  Tiap baris: titik persegi `sinyal`, NAMA SALES · TOKO (label kecil), isi
+  catatan (maks 3 baris), no order · waktu. Ketuk baris = catatan order itu
+  dibaca + langsung membuka rincian order (`#/admin/order/<id>`). Tutup: ketuk
+  di luar, Esc, atau lonceng lagi.
+- Di Meja Order, ikon catatan order yang punya catatan belum dibaca diblok
+  `tunggu`; di rincian order catatan baru berlatar `tunggu-muda` bertanda
+  BARU. Sales melihat "sudah/belum dibaca admin".
 
 ### Cap Tersimpan (signature)
 Kotak bergaris tinta 3px berisi ikon centang dan kata TERSIMPAN,

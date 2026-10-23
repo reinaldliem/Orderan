@@ -1,3 +1,5 @@
+import { ikon } from './ikon.js';
+
 // Fungsi bantu dipakai di semua halaman.
 
 /** Amankan teks sebelum masuk innerHTML. WAJIB untuk semua data dari DB/pengguna. */
@@ -120,6 +122,40 @@ export function tanya(judul, isi, labelYa = 'Ya, lanjut') {
   });
 }
 
+// ------------------------------------------------------------
+// Halaman di belakang lembar dibekukan.
+//
+// Di HP, saat papan tombol naik untuk kotak ketik di dalam lembar, HP
+// menggulir HALAMAN DI BELAKANG lembar supaya kotak ketiknya kelihatan.
+// Begitu lembar ditutup, pengguna "jatuh" ke tempat lain — paling terasa
+// saat mengetik nama barang/toko baru, karena daftarnya menyusut dan
+// kotak ketiknya turun ke dasar layar.
+//
+// Penjaganya terpusat: begitu ada `.tirai` di <body>, halaman dibekukan;
+// saat tirai terakhir dilepas, posisi semula dikembalikan persis. Lembar
+// bertumpuk (mis. pilih barang di dalam lembar ubah order) tetap aman.
+// ------------------------------------------------------------
+let posisiBeku = null;
+
+export function aturBeku() {
+  const adaTirai = !!document.querySelector('body > .tirai');
+  const b = document.body.style;
+  if (adaTirai && posisiBeku === null) {
+    posisiBeku = window.scrollY;
+    b.position = 'fixed';
+    b.top = `-${posisiBeku}px`;
+    b.left = '0';
+    b.right = '0';
+  } else if (!adaTirai && posisiBeku !== null) {
+    const y = posisiBeku;
+    posisiBeku = null;
+    b.position = b.top = b.left = b.right = '';
+    window.scrollTo(0, y);
+  }
+}
+
+new MutationObserver(aturBeku).observe(document.body, { childList: true });
+
 /**
  * Lembar bawah serbaguna (bottom sheet). Kembalikan elemen tirainya;
  * tutup dengan `.remove()`. Ketuk latar atau tombol X juga menutup.
@@ -131,7 +167,7 @@ export function lembar(judul, isiHtml) {
     <div class="lembar" role="dialog" aria-modal="true">
       <div class="lembar-atas"><div class="tajuk">
         <h3>${esc(judul)}</h3>
-        <button type="button" class="tutup" aria-label="Tutup">&times;</button>
+        <button type="button" class="tutup" aria-label="Tutup">${ikon('silang', 18)}</button>
       </div></div>
       <div class="daftar" style="padding:16px">${isiHtml}</div>
     </div>`;

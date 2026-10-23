@@ -1,0 +1,18 @@
+{
+  "id": "./",
+  "name": "Order Sales",
+  "short_name": "Order Sales",
+  "description": "Aplikasi order untuk sales — isi order langsung dari HP.",
+  "lang": "id",
+  "dir": "ltr",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "theme_color": "#17130f",
+  "background_color": "#ddd0b8",
+  "icons": [
+    { "src": "ikon/ikon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "ikon/ikon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "ikon/ikon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
