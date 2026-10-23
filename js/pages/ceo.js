@@ -32,13 +32,15 @@ function rentangTanggal(hari) {
   return { dari: tanggalISO(dari), sampai: tanggalISO(sampai) };
 }
 
-/** Angka uang yang dipadatkan untuk label grafik: 12.210.000 -> 12,2 jt */
-function padat(n) {
-  const v = Number(n) || 0;
-  if (Math.abs(v) >= 1e9) return (v / 1e9).toFixed(1).replace('.', ',') + ' M';
-  if (Math.abs(v) >= 1e6) return (v / 1e6).toFixed(1).replace('.', ',') + ' jt';
-  if (Math.abs(v) >= 1e3) return Math.round(v / 1e3) + ' rb';
-  return String(Math.round(v));
+/**
+ * Angka uang penuh, dikelompokkan gaya Indonesia: 169499444 -> "169.499.444".
+ *
+ * Dulu fungsi ini menyingkat ke "169,5 jt". Pemilik memintanya penuh:
+ * angka yang dibulatkan ke juta menyembunyikan ratusan ribu, dan untuk
+ * memutuskan sesuatu ia perlu melihat angkanya apa adanya.
+ */
+function penuh(n) {
+  return Math.round(Number(n) || 0).toLocaleString('id-ID');
 }
 
 function labelPeriode(iso, satuan) {
@@ -61,7 +63,7 @@ function grafikBatang(deret, satuan) {
     return '<div class="kosong-pesan">Belum ada order di rentang ini.</div>';
   }
 
-  const L = 44, K = 8, A = 14, B = 26;          // tepi kiri, kanan, atas, bawah
+  const L = 86, K = 8, A = 14, B = 26;          // tepi kiri, kanan, atas, bawah
   const tinggi = 180;
   const lebar = Math.max(280, deret.length * 46 + L + K);
   const puncak = Math.max(...deret.map((d) => Number(d.omzet) || 0), 1);
@@ -74,7 +76,7 @@ function grafikBatang(deret, satuan) {
               stroke="var(--garis)" stroke-width="1"></line>
             <text x="${L - 6}" y="${y + 4}" text-anchor="end"
               font-size="9" fill="var(--tinta-2)"
-              font-weight="700">${esc(padat(puncak * f))}</text>`;
+              font-weight="700">${esc(penuh(puncak * f))}</text>`;
   }).join('');
 
   const batang = deret.map((d, i) => {
@@ -148,15 +150,15 @@ export async function gambar(isi, ctx) {
     wadah.innerHTML = `
       <div class="ringkas">
         <div class="sel"><div class="lbl">Omzet</div>
-          <div class="nilai">${esc(padat(omzet))}</div></div>
+          <div class="nilai">${esc(penuh(omzet))}</div></div>
         <div class="sel"><div class="lbl">Margin</div>
-          <div class="nilai">${esc(padat(margin))}</div></div>
+          <div class="nilai">${esc(penuh(margin))}</div></div>
       </div>
       <div class="ringkas">
         <div class="sel"><div class="lbl">Jumlah order</div>
           <div class="nilai">${esc(String(s.jml_order ?? 0))}</div></div>
         <div class="sel"><div class="lbl">Rata per order</div>
-          <div class="nilai">${esc(padat(s.rata_order))}</div></div>
+          <div class="nilai">${esc(penuh(s.rata_order))}</div></div>
       </div>
 
       ${cakupan < 100 ? `
@@ -190,8 +192,8 @@ export async function gambar(isi, ctx) {
                 <tr>
                   <td><b>${esc(x.nama || '—')}</b>
                     ${x.kode_sales ? `<span class="kode">${esc(x.kode_sales)}</span>` : ''}</td>
-                  <td class="num">${esc(padat(x.omzet))}</td>
-                  <td class="num">${esc(padat(x.margin))}</td>
+                  <td class="num">${esc(penuh(x.omzet))}</td>
+                  <td class="num">${esc(penuh(x.margin))}</td>
                   <td class="num">${esc(String(x.jml_order ?? 0))}</td>
                   <td class="num">${esc(String(x.rata_toko_per_hari ?? 0))}
                     <span class="ket-kecil">${esc(String(x.hari_aktif ?? 0))} hari aktif</span></td>
@@ -223,8 +225,8 @@ export async function gambar(isi, ctx) {
                 <tr>
                   <td>${esc(x.barang_nama)}</td>
                   <td class="num">${esc(String(Number(x.qty) || 0))} ${esc(x.satuan || '')}</td>
-                  <td class="num">${esc(padat(x.omzet))}</td>
-                  <td class="num">${esc(padat(x.margin))}</td>
+                  <td class="num">${esc(penuh(x.omzet))}</td>
+                  <td class="num">${esc(penuh(x.margin))}</td>
                 </tr>`).join('')}
             </tbody>
           </table>

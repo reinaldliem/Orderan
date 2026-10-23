@@ -1034,6 +1034,14 @@ body.lebar #app, body.lebar .bar { max-width: 1280px; }
     display: grid;
     grid-template-columns: 220px minmax(0, 1fr);
     grid-template-rows: auto 1fr;
+
+    /* Pita tinta di kiri dipasang pada WADAH, bukan pada elemen menunya.
+       Menu itu sticky setinggi layar: begitu isi halaman lebih tinggi dari
+       layar dan halaman digulir, tinggi tetapnya tidak lagi menutupi
+       seluruh kolom — hitamnya berhenti separuh jalan. Pita di wadah ikut
+       setinggi grid berapa pun isinya, jadi tidak mungkin putus. */
+    background: linear-gradient(to right,
+      var(--tinta) 0, var(--tinta) 220px, transparent 220px);
   }
 
   /* menu samping: ladang tinta, yang aktif dibalik — sama dengan .tab button.aktif */
@@ -1042,7 +1050,7 @@ body.lebar #app, body.lebar .bar { max-width: 1280px; }
     grid-column: 1; grid-row: 1 / -1;
     position: sticky; top: 0; height: 100dvh; overflow-y: auto;
     padding: 16px 12px;
-    background: var(--tinta); color: var(--blok);
+    background: transparent; color: var(--blok);
   }
   .samping-merek {
     font-family: var(--stensil); font-weight: 400; font-size: 22px; line-height: 1.05;
