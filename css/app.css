@@ -1022,7 +1022,12 @@ body.lebar #app, body.lebar .bar { max-width: 1280px; }
 .tabel-akun .k-aksi { white-space: nowrap; }
 .tabel-akun .k-aksi .btn { width: auto; display: inline-flex; margin-right: 6px; }
 
-@media (min-width: 1024px) {
+/* 900px, bukan 1024px. Windows menskalakan tampilan 125-150% secara
+   bawaan, jadi laptop 1366px pada 150% hanya melaporkan 911 CSS px —
+   di bawah 1024 ia tetap dapat tata letak HP padahal layarnya lebar.
+   Sidebar 220px menyisakan 680px untuk isi; tabel lebar tetap
+   menggulir di dalam wadahnya sendiri. */
+@media (min-width: 900px) {
   body.meja #app,
   body.meja.lebar #app {
     max-width: none;

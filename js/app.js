@@ -120,7 +120,8 @@ function rutaSekarang() {
 const MENU_SAMPING = [
   { bagian: 'dasbor', href: '#/dasbor',       ikon: 'dasbor', label: 'Dasbor', untuk: ['admin', 'ceo'] },
   { bagian: 'order',  href: '#/admin/order',  ikon: 'nota',   label: 'Order',  untuk: ['admin', 'ceo'] },
-  { bagian: 'buat',   href: '#/order',        ikon: 'tambah', label: 'Buat order', untuk: ['admin'] },
+  { bagian: 'buat',   href: '#/order',        ikon: 'tambah', label: 'Buat order', untuk: ['sales', 'admin'] },
+  { bagian: 'riwayat', href: '#/riwayat',     ikon: 'riwayat', label: 'Order saya', untuk: ['sales'] },
   { bagian: 'toko',   href: '#/admin/toko',   ikon: 'toko',   label: 'Toko',   untuk: ['admin', 'ceo'] },
   { bagian: 'barang', href: '#/admin/barang', ikon: 'barang', label: 'Barang', untuk: ['admin', 'ceo'] },
   { bagian: 'akun',   href: '#/admin/akun',   ikon: 'akun',   label: 'Akun',   untuk: ['admin', 'ceo'] },
@@ -130,23 +131,29 @@ function gambarKerangka(kunci) {
   const h = HALAMAN[kunci];
   const peran = status.profil?.peran;
   const adminkah = peran === 'admin';
-  // Meja kerja = layar lebar + menu samping. Bukan soal peran admin,
-  // melainkan soal siapa yang bekerja di layar besar: admin dan CEO.
-  const mejaKerja = adminkah || peran === 'ceo';
+  // DUA MODE: mobile dan desktop, dan yang menentukan adalah LEBAR LAYAR,
+  // bukan peran. Dulu hanya admin yang dapat meja kerja, jadi sales yang
+  // membuka di laptop tetap melihat tampilan HP selebar 560px.
+  //
+  // Menu samping selalu ikut dirender; CSS menyembunyikannya di bawah
+  // 900px (.samping { display: none }) dan memunculkannya di atas itu.
+  // Isinya tetap disaring per peran, jadi sales hanya melihat halamannya
+  // sendiri.
   const perannya = peran && peran !== 'sales' ? ' · ' + peran : '';
   const menu = Object.entries(HALAMAN).filter(([, v]) => v.peranBoleh.includes(peran));
   const pr = status.profil;
 
-  const bagianAktif = kunci === 'order' ? 'buat' : kunci === 'dasbor' ? 'dasbor' : null;   // bagian Admin ditandai admin.js
+  const bagianAktif = kunci === 'order' ? 'buat'
+    : kunci === 'riwayat' ? 'riwayat'
+    : kunci === 'dasbor' ? 'dasbor' : null;   // bagian Admin ditandai admin.js
   app.innerHTML = `
-    ${mejaKerja ? `
     <nav class="samping" aria-label="Menu samping">
       <div class="samping-merek">Order Sales</div>
       ${MENU_SAMPING.filter((m) => m.untuk.includes(peran))
         .map((m) => `<a href="${m.href}" data-bagian="${m.bagian}"${
         m.bagian === bagianAktif ? ' class="aktif" aria-current="page"' : ''}>
         ${ikon(m.ikon, 20)}<span>${esc(m.label)}</span></a>`).join('')}
-    </nav>` : ''}
+    </nav>
     <header class="atas">
       <div>
         <h1>${esc(h.judul)}<span class="h1-bagian"></span></h1>
@@ -172,7 +179,7 @@ function gambarKerangka(kunci) {
   // Lebar 1280px hanya untuk tab Order di Admin; admin.js memasangnya lagi.
   document.body.classList.remove('tanpa-bar', 'lebar');
   // Mode desktop (menu samping, selebar jendela) hanya untuk admin; ukurannya diatur CSS.
-  document.body.classList.toggle('meja', mejaKerja);
+  document.body.classList.add('meja');
   document.getElementById('btn-keluar').addEventListener('click', keluarSekarang);
   notif.pasangLonceng(document.getElementById('btn-lonceng'));
   return document.getElementById('isi');
