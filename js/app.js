@@ -118,27 +118,32 @@ function rutaSekarang() {
 // tetap bar bawah + tab di halaman Admin. Bagian Admin punya alamat sendiri
 // (#/admin/toko, …); yang aktif ditandai admin.js setelah tabnya ditentukan.
 const MENU_SAMPING = [
-  { bagian: 'order',  href: '#/admin/order',  ikon: 'nota',   label: 'Order' },
-  { bagian: 'buat',   href: '#/order',        ikon: 'tambah', label: 'Buat order' },
-  { bagian: 'toko',   href: '#/admin/toko',   ikon: 'toko',   label: 'Toko' },
-  { bagian: 'barang', href: '#/admin/barang', ikon: 'barang', label: 'Barang' },
-  { bagian: 'akun',   href: '#/admin/akun',   ikon: 'akun',   label: 'Akun' },
+  { bagian: 'dasbor', href: '#/dasbor',       ikon: 'dasbor', label: 'Dasbor', untuk: ['admin', 'ceo'] },
+  { bagian: 'order',  href: '#/admin/order',  ikon: 'nota',   label: 'Order',  untuk: ['admin', 'ceo'] },
+  { bagian: 'buat',   href: '#/order',        ikon: 'tambah', label: 'Buat order', untuk: ['admin'] },
+  { bagian: 'toko',   href: '#/admin/toko',   ikon: 'toko',   label: 'Toko',   untuk: ['admin', 'ceo'] },
+  { bagian: 'barang', href: '#/admin/barang', ikon: 'barang', label: 'Barang', untuk: ['admin', 'ceo'] },
+  { bagian: 'akun',   href: '#/admin/akun',   ikon: 'akun',   label: 'Akun',   untuk: ['admin', 'ceo'] },
 ];
 
 function gambarKerangka(kunci) {
   const h = HALAMAN[kunci];
   const peran = status.profil?.peran;
   const adminkah = peran === 'admin';
+  // Meja kerja = layar lebar + menu samping. Bukan soal peran admin,
+  // melainkan soal siapa yang bekerja di layar besar: admin dan CEO.
+  const mejaKerja = adminkah || peran === 'ceo';
   const perannya = peran && peran !== 'sales' ? ' · ' + peran : '';
   const menu = Object.entries(HALAMAN).filter(([, v]) => v.peranBoleh.includes(peran));
   const pr = status.profil;
 
-  const bagianAktif = kunci === 'order' ? 'buat' : null;   // bagian Admin ditandai admin.js
+  const bagianAktif = kunci === 'order' ? 'buat' : kunci === 'dasbor' ? 'dasbor' : null;   // bagian Admin ditandai admin.js
   app.innerHTML = `
-    ${adminkah ? `
-    <nav class="samping" aria-label="Menu admin">
+    ${mejaKerja ? `
+    <nav class="samping" aria-label="Menu samping">
       <div class="samping-merek">Order Sales</div>
-      ${MENU_SAMPING.map((m) => `<a href="${m.href}" data-bagian="${m.bagian}"${
+      ${MENU_SAMPING.filter((m) => m.untuk.includes(peran))
+        .map((m) => `<a href="${m.href}" data-bagian="${m.bagian}"${
         m.bagian === bagianAktif ? ' class="aktif" aria-current="page"' : ''}>
         ${ikon(m.ikon, 20)}<span>${esc(m.label)}</span></a>`).join('')}
     </nav>` : ''}
@@ -167,7 +172,7 @@ function gambarKerangka(kunci) {
   // Lebar 1280px hanya untuk tab Order di Admin; admin.js memasangnya lagi.
   document.body.classList.remove('tanpa-bar', 'lebar');
   // Mode desktop (menu samping, selebar jendela) hanya untuk admin; ukurannya diatur CSS.
-  document.body.classList.toggle('peran-admin', adminkah);
+  document.body.classList.toggle('meja', mejaKerja);
   document.getElementById('btn-keluar').addEventListener('click', keluarSekarang);
   notif.pasangLonceng(document.getElementById('btn-lonceng'));
   return document.getElementById('isi');
@@ -241,7 +246,7 @@ function lupakanLencana() {
 // ------------------------------------------------------------
 async function gambarLogin() {
   document.body.classList.add('tanpa-bar');
-  document.body.classList.remove('lebar', 'peran-admin');
+  document.body.classList.remove('lebar', 'meja');
   const modul = await import('./pages/login.js');
   await modul.gambar(app, {
     setelahMasuk: async (pr) => {

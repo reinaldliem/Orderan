@@ -1173,11 +1173,20 @@ function sheetMassal(o, data, kat, muat, ctx) {
       <div class="sheet-gulir">
         <table class="sheet">
           <thead><tr>
+            <th class="sm-pilih" style="min-width:46px">
+              <input type="checkbox" id="sm-semua" aria-label="Pilih semua baris"
+                     style="width:20px;height:20px;min-height:20px;padding:0">
+            </th>
             ${kolom.map((k) => `<th style="min-width:${k.lebar || 140}px">${esc(k.label)}</th>`).join('')}
           </tr></thead>
           <tbody>
             ${data.map((r) => `
               <tr data-id="${esc(r.id)}">
+                <td class="sm-pilih">
+                  <input type="checkbox" class="sm-tandai"
+                         aria-label="Pilih ${esc(r.nama || r.id)}"
+                         style="width:20px;height:20px;min-height:20px;padding:0">
+                </td>
                 ${kolom.map((k) => `<td>${selSheet(k, r, kat)}</td>`).join('')}
               </tr>`).join('')}
           </tbody>
@@ -1185,12 +1194,21 @@ function sheetMassal(o, data, kat, muat, ctx) {
       </div>
 
       <div style="padding:14px;border-top:2px solid var(--tinta)">
-        <button type="button" class="btn" id="sm-simpan" disabled>Simpan perubahan</button>
+        <div class="tombol-baris">
+          <button type="button" class="btn" id="sm-simpan" disabled>Simpan perubahan</button>
+          <button type="button" class="btn abu" id="sm-hapus" disabled
+                  style="color:var(--sinyal);border-color:var(--sinyal)">Hapus terpilih</button>
+        </div>
+        <div class="bantuan">
+          Yang sudah pernah dipakai di order tidak bisa dihapus — database
+          menolaknya, dan barisnya tetap di layar dengan sebabnya.
+        </div>
       </div>
     </div>`;
 
   const hitungEl = tirai.querySelector('#sm-hitung');
   const simpanEl = tirai.querySelector('#sm-simpan');
+  const hapusEl = tirai.querySelector('#sm-hapus');
 
   /** Baris mana saja yang nilainya sudah beda dari aslinya. */
   function berubah() {
@@ -1209,13 +1227,24 @@ function sheetMassal(o, data, kat, muat, ctx) {
     return keluar;
   }
 
+  /** Baris yang dicentang untuk dihapus. */
+  function terpilih() {
+    return [...tirai.querySelectorAll('tbody tr')]
+      .filter((tr) => tr.querySelector('.sm-tandai')?.checked);
+  }
+
   function segarkanHitung() {
     const n = berubah().length;
-    hitungEl.textContent = n
-      ? `${n} baris diubah — belum disimpan.`
-      : 'Belum ada perubahan.';
+    const p = terpilih().length;
+    hitungEl.textContent = [
+      n ? `${n} baris diubah — belum disimpan.` : '',
+      p ? `${p} baris dipilih untuk dihapus.` : '',
+    ].filter(Boolean).join(' ') || 'Belum ada perubahan.';
+
     simpanEl.disabled = n === 0;
     simpanEl.textContent = n ? `Simpan ${n} perubahan` : 'Simpan perubahan';
+    hapusEl.disabled = p === 0;
+    hapusEl.textContent = p ? `Hapus ${p} terpilih` : 'Hapus terpilih';
   }
 
   tirai.addEventListener('input', segarkanHitung);
@@ -1231,6 +1260,55 @@ function sheetMassal(o, data, kat, muat, ctx) {
       tirai.remove();
       return;
     }
+    // Pilih semua
+    if (e.target.closest('#sm-semua')) {
+      const nyala = tirai.querySelector('#sm-semua').checked;
+      tirai.querySelectorAll('.sm-tandai').forEach((c) => { c.checked = nyala; });
+      segarkanHitung();
+      return;
+    }
+
+    // HAPUS MASSAL. Satu baris gagal tidak membatalkan sisanya: yang ditolak
+    // database (karena sudah dipakai order) ditandai merah dan tetap di layar
+    // dengan sebabnya, yang berhasil hilang dari tabel.
+    if (e.target.closest('#sm-hapus')) {
+      const pilihan = terpilih();
+      if (!pilihan.length) return;
+      const ya = await tanya(
+        `Hapus ${pilihan.length} ${o.judul.toLowerCase()}?`,
+        'Yang sudah pernah dipakai di order akan ditolak database dan tetap ada. '
+        + 'Sisanya hilang permanen.', 'Ya, hapus');
+      if (!ya) return;
+
+      hapusEl.disabled = true;
+      let hilang = 0;
+      const tolak = [];
+      for (const tr of pilihan) {
+        const id = tr.dataset.id;
+        try {
+          await db.hapus(o.tabel, id);
+          asli.delete(id);
+          tr.remove();
+          hilang += 1;
+        } catch (err) {
+          tr.style.background = 'var(--sinyal-muda)';
+          tr.title = err.message;
+          tolak.push(`${asli.get(id)?.nama || id}: ${err.message}`);
+        }
+        hapusEl.textContent = `Menghapus ${hilang}/${pilihan.length}…`;
+      }
+
+      segarkanHitung();
+      if (tolak.length) {
+        pesan(`${hilang} terhapus, ${tolak.length} ditolak. ${tolak[0]}`, 'salah');
+      } else {
+        pesan(`${hilang} ${o.judul.toLowerCase()} terhapus.`, 'ok');
+      }
+      await muat();
+      ctx.segarkanMaster({ paksa: true }).catch(() => {});
+      return;
+    }
+
     if (!e.target.closest('#sm-simpan')) return;
 
     const daftar = berubah();
@@ -1432,6 +1510,12 @@ async function kelolaKategori(jenis, judul, sesudah) {
 async function tabMaster(panel, ctx, o) {
   let data = [];
 
+  // Usulan = baris yang dibuat sales langsung dari form order (sumber
+  // 'sales'). Sebelumnya hanya ditandai lencana dan tercampur di antara
+  // ratusan baris lain — tidak ada cara melihatnya saja, padahal justru
+  // itulah yang perlu diperiksa admin.
+  let hanyaUsulan = false;
+
   // Kategori dimuat sekali per tab, bukan tiap kali dialog dibuka:
   // daftarnya pendek dan jarang berubah.
   let kat = [];
@@ -1448,7 +1532,9 @@ async function tabMaster(panel, ctx, o) {
         <button type="button" class="btn kecil" id="btn-tambah" style="width:auto">+ Tambah</button>
         <button type="button" class="btn abu kecil" id="btn-impor" style="width:auto">${ikon('tempel', 17)}Tempel dari Excel</button>
         <button type="button" class="btn abu kecil" id="btn-kategori" style="width:auto">Kategori</button>
-          <button type="button" class="btn abu kecil" id="btn-sheet" style="width:auto">Edit massal</button>
+          <button type="button" class="btn abu kecil" id="btn-massal" style="width:auto">Edit massal</button>
+          <button type="button" class="btn abu kecil" id="btn-usulan" style="width:auto"
+                  aria-pressed="false">Usulan sales</button>
       </div>
       <div class="bantuan" id="hitung"></div>
     </div>
@@ -1463,13 +1549,30 @@ async function tabMaster(panel, ctx, o) {
     gambarList();
   }
 
+  /** Baris yang lolos penyaring usulan — dipakai daftar maupun edit massal. */
+  function tersaring() {
+    return hanyaUsulan ? data.filter((r) => r.sumber === 'sales') : data;
+  }
+
   function gambarList() {
     const q = cari.value.trim().toLowerCase();
-    const cocok = (q ? data.filter((r) => r.nama.toLowerCase().includes(q)) : data).slice(0, 200);
+    const dasar = tersaring();
+    const cocok = (q ? dasar.filter((r) => r.nama.toLowerCase().includes(q)) : dasar).slice(0, 200);
+    const jmlUsulan = data.filter((r) => r.sumber === 'sales').length;
+
     const elHitung = panel.querySelector('#hitung');
     if (elHitung) {
-      elHitung.textContent =
-        `${data.length} ${o.judul.toLowerCase()} · ${data.filter((r) => r.sumber === 'sales').length} usulan dari sales`;
+      elHitung.textContent = hanyaUsulan
+        ? `Menampilkan ${jmlUsulan} usulan dari sales saja — dari ${data.length} ${o.judul.toLowerCase()}.`
+        : `${data.length} ${o.judul.toLowerCase()} · ${jmlUsulan} usulan dari sales`;
+    }
+
+    const elUsulan = panel.querySelector('#btn-usulan');
+    if (elUsulan) {
+      elUsulan.textContent = hanyaUsulan ? 'Tampilkan semua' : `Usulan sales (${jmlUsulan})`;
+      elUsulan.setAttribute('aria-pressed', hanyaUsulan ? 'true' : 'false');
+      elUsulan.classList.toggle('abu', !hanyaUsulan);
+      elUsulan.disabled = jmlUsulan === 0 && !hanyaUsulan;
     }
 
     if (!cocok.length) {
@@ -1657,9 +1760,17 @@ async function tabMaster(panel, ctx, o) {
     document.body.appendChild(tirai);
   });
 
-  panel.querySelector('#btn-sheet').addEventListener('click', () => {
-    if (!data.length) { pesan('Belum ada data untuk diedit.', 'salah'); return; }
-    sheetMassal(o, data, kat, muat, ctx);
+  panel.querySelector('#btn-usulan').addEventListener('click', () => {
+    hanyaUsulan = !hanyaUsulan;
+    gambarList();
+  });
+
+  panel.querySelector('#btn-massal').addEventListener('click', () => {
+    // Edit massal mengikuti penyaring: kalau sedang melihat usulan saja,
+    // yang dibuka pun hanya usulan — itu alur memeriksanya.
+    const baris = tersaring();
+    if (!baris.length) { pesan('Belum ada data untuk diedit.', 'salah'); return; }
+    sheetMassal(o, baris, kat, muat, ctx);
   });
 
   panel.querySelector('#btn-kategori').addEventListener('click', () => {

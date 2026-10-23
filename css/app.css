@@ -1023,8 +1023,8 @@ body.lebar #app, body.lebar .bar { max-width: 1280px; }
 .tabel-akun .k-aksi .btn { width: auto; display: inline-flex; margin-right: 6px; }
 
 @media (min-width: 1024px) {
-  body.peran-admin #app,
-  body.peran-admin.lebar #app {
+  body.meja #app,
+  body.meja.lebar #app {
     max-width: none;
     display: grid;
     grid-template-columns: 220px minmax(0, 1fr);
@@ -1032,7 +1032,7 @@ body.lebar #app, body.lebar .bar { max-width: 1280px; }
   }
 
   /* menu samping: ladang tinta, yang aktif dibalik — sama dengan .tab button.aktif */
-  body.peran-admin .samping {
+  body.meja .samping {
     display: flex; flex-direction: column; gap: 2px;
     grid-column: 1; grid-row: 1 / -1;
     position: sticky; top: 0; height: 100dvh; overflow-y: auto;
@@ -1044,53 +1044,53 @@ body.lebar #app, body.lebar .bar { max-width: 1280px; }
     text-transform: uppercase; letter-spacing: .02em;
     padding: 2px 10px 18px; color: var(--blok);
   }
-  body.peran-admin .samping a {
+  body.meja .samping a {
     display: flex; align-items: center; gap: 10px;
     min-height: 44px; padding: 10px 12px;
     color: var(--kraft-pudar); text-decoration: none;
     font-size: 12px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase;
   }
-  body.peran-admin .samping a.aktif { background: var(--kraft-muda); color: var(--tinta); }
-  body.peran-admin .samping a:focus-visible { outline: 3px solid var(--blok); outline-offset: -3px; }
+  body.meja .samping a.aktif { background: var(--kraft-muda); color: var(--tinta); }
+  body.meja .samping a:focus-visible { outline: 3px solid var(--blok); outline-offset: -3px; }
 
-  body.peran-admin .atas,
-  body.peran-admin .isi { grid-column: 2; }
-  body.peran-admin .isi { padding: 20px 24px 40px; }
-  body.peran-admin .h1-bagian { display: inline; }
+  body.meja .atas,
+  body.meja .isi { grid-column: 2; }
+  body.meja .isi { padding: 20px 24px 40px; }
+  body.meja .h1-bagian { display: inline; }
 
   /* menu samping menggantikan bar bawah & tab di halaman Admin */
-  body.peran-admin .bar,
-  body.peran-admin #tab { display: none; }
-  body.peran-admin .btn.blok-bawah { bottom: 12px; }
+  body.meja .bar,
+  body.meja #tab { display: none; }
+  body.meja .btn.blok-bawah { bottom: 12px; }
 
   /* Toko / Barang / Akun: tabel lebar, bukan kartu */
-  body.peran-admin .daftar-kartu { display: none; }
-  body.peran-admin .daftar-tabel { display: block; }
+  body.meja .daftar-kartu { display: none; }
+  body.meja .daftar-tabel { display: block; }
 
   /* Akun: tambah akun di kiri, daftar di kanan */
-  body.peran-admin .tata-akun {
+  body.meja .tata-akun {
     display: grid; grid-template-columns: minmax(300px, 360px) minmax(0, 1fr);
     gap: 20px; align-items: start;
   }
 
   /* Buat order: toko, catatan & total di kiri; barang di kanan */
-  body.peran-admin .buat-order .form-order {
+  body.meja .buat-order .form-order {
     display: grid; grid-template-columns: minmax(300px, 380px) minmax(0, 1fr);
     grid-template-areas: "toko barang" "catatan barang" "total barang";
     column-gap: 20px; align-items: start;
   }
-  body.peran-admin .buat-order .fo-toko    { grid-area: toko; }
-  body.peran-admin .buat-order .fo-barang  { grid-area: barang; }
-  body.peran-admin .buat-order .fo-catatan { grid-area: catatan; }
-  body.peran-admin .buat-order .fo-total   { grid-area: total; }
+  body.meja .buat-order .fo-toko    { grid-area: toko; }
+  body.meja .buat-order .fo-barang  { grid-area: barang; }
+  body.meja .buat-order .fo-catatan { grid-area: catatan; }
+  body.meja .buat-order .fo-total   { grid-area: total; }
 
   /* lembar (ubah order, rincian, tanya) muncul di tengah layar, bukan dari bawah */
-  body.peran-admin .tirai { align-items: center; }
-  body.peran-admin .tirai .lembar { border: 3px solid var(--tinta); }
+  body.meja .tirai { align-items: center; }
+  body.meja .tirai .lembar { border: 3px solid var(--tinta); }
 }
 
 @media (hover: hover) and (pointer: fine) {
-  body.peran-admin .samping a:not(.aktif):hover { background: var(--tinta-2); color: var(--blok); }
+  body.meja .samping a:not(.aktif):hover { background: var(--tinta-2); color: var(--blok); }
 }
 
 /* ---------- Gerak dikurangi ---------- */
@@ -1214,3 +1214,7 @@ table.dasbor-tabel .kode { margin-left: 6px; }
   letter-spacing: .12em; text-transform: uppercase;
   color: var(--tinta-2); margin-top: 2px;
 }
+
+/* Kolom centang pilih di edit massal: sempit dan rata tengah. */
+table.sheet th.sm-pilih,
+table.sheet td.sm-pilih { text-align: center; padding: 6px 8px; }
