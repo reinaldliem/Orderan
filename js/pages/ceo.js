@@ -20,6 +20,8 @@ const RENTANG = [
 ];
 
 let rentangAktif = 'bulan';
+/** null = semua sales. Saringan ini mengubah SELURUH angka di layar. */
+let salesAktif = null;
 
 function tanggalISO(d) {
   return new Date(d.getTime() - d.getTimezoneOffset() * 60000)
@@ -41,6 +43,12 @@ function rentangTanggal(hari) {
  */
 function penuh(n) {
   return Math.round(Number(n) || 0).toLocaleString('id-ID');
+}
+
+/** Margin null = HPP barangnya belum diisi. Itu BUKAN nol. Menulis 0 di
+ *  layar akan terbaca "barang ini tidak untung", padahal belum terhitung. */
+function marginTeks(n) {
+  return (n === null || n === undefined) ? '—' : penuh(n);
 }
 
 function labelPeriode(iso, satuan) {
@@ -108,6 +116,69 @@ function grafikBatang(deret, satuan) {
     </div>`;
 }
 
+/** Satu baris angka di dalam kartu HP: label kecil di atas, angka di bawah. */
+function sel(label, nilai, ket) {
+  return `<div class="sel-kartu"><span>${esc(label)}</span><b>${esc(String(nilai))}</b>${
+    ket ? `<i>${esc(ket)}</i>` : ''}</div>`;
+}
+
+function kartuBarang(daftar) {
+  return daftar.map((x) => `
+    <div class="kartu-angka">
+      <div class="nama-kartu">${esc(x.barang_nama)}</div>
+      <div class="ket-kartu">${esc(x.kategori_nama || 'tanpa kategori')}</div>
+      <div class="sel-baris">
+        ${sel('Omzet', penuh(x.omzet))}
+        ${sel('Margin', marginTeks(x.margin))}
+        ${sel('Terjual', `${Number(x.qty) || 0} ${x.satuan || ''}`.trim())}
+        ${sel('Toko', x.jml_toko ?? 0)}
+      </div>
+    </div>`).join('');
+}
+
+function kartuKategori(daftar) {
+  return daftar.map((x) => `
+    <div class="kartu-angka">
+      <div class="nama-kartu">${esc(x.kategori_nama)}</div>
+      <div class="sel-baris">
+        ${sel('Omzet', penuh(x.omzet))}
+        ${sel('Margin', marginTeks(x.margin))}
+        ${sel('Barang', x.jml_barang ?? 0)}
+        ${sel('Order', x.jml_order ?? 0)}
+      </div>
+    </div>`).join('');
+}
+
+function kartuSales(daftar, dipilih) {
+  return daftar.map((x) => `
+    <div class="kartu-angka ${x.sales_id === dipilih ? 'baris-pilih' : ''}">
+      <div class="nama-kartu">${esc(x.nama || '—')}${
+        x.kode_sales && x.kode_sales !== x.nama
+          ? ` <span class="kode">${esc(x.kode_sales)}</span>` : ''}</div>
+      <div class="sel-baris">
+        ${sel('Omzet', penuh(x.omzet))}
+        ${sel('Margin', marginTeks(x.margin))}
+        ${sel('Order', x.jml_order ?? 0)}
+        ${sel('Toko/hari', x.rata_toko_per_hari ?? 0, `${x.hari_aktif ?? 0} hari aktif`)}
+      </div>
+      <div class="ket-kartu">Paling banyak dijual: ${esc(x.barang_teratas || '—')}</div>
+    </div>`).join('');
+}
+
+/** Satu tempat yang menulis baris barang, supaya pencarian dan muatan
+ *  pertama tidak bisa berbeda bentuk. */
+function barisBarang(daftar) {
+  return daftar.map((x) => `
+    <tr>
+      <td>${esc(x.barang_nama)}</td>
+      <td>${esc(x.kategori_nama || '—')}</td>
+      <td class="num">${esc(String(Number(x.qty) || 0))} ${esc(x.satuan || '')}</td>
+      <td class="num">${esc(penuh(x.omzet))}</td>
+      <td class="num">${esc(marginTeks(x.margin))}</td>
+      <td class="num">${esc(String(x.jml_toko ?? 0))}</td>
+    </tr>`).join('');
+}
+
 export async function gambar(isi, ctx) {
   const { status } = ctx;
 
@@ -116,9 +187,19 @@ export async function gambar(isi, ctx) {
       ${RENTANG.map((r) => `<button type="button" data-r="${r.k}"
          class="${r.k === rentangAktif ? 'aktif' : ''}">${esc(r.label)}</button>`).join('')}
     </div>
+    <div class="baris" style="margin-bottom:12px">
+      <label class="label" for="pilih-sales">Lihat angka milik</label>
+      <select id="pilih-sales"><option value="">Semua sales</option></select>
+    </div>
     <div id="dasbor"><div class="memuat"><div class="putar"></div>Memuat…</div></div>`;
 
   const wadah = isi.querySelector('#dasbor');
+  const selSales = isi.querySelector('#pilih-sales');
+
+  selSales.addEventListener('change', () => {
+    salesAktif = selSales.value || null;
+    muat().catch((e) => pesan(e.message, 'salah'));
+  });
 
   isi.querySelector('#tab-rentang').addEventListener('click', (e) => {
     const b = e.target.closest('[data-r]');
@@ -134,18 +215,31 @@ export async function gambar(isi, ctx) {
     const { dari, sampai } = rentangTanggal(r.hari);
     wadah.innerHTML = `<div class="memuat"><div class="putar"></div>Memuat…</div>`;
 
-    const [ringkasRow, deret, sales, barang] = await Promise.all([
-      db.rpc('dasbor_ringkas', { p_dari: dari, p_sampai: sampai }),
-      db.rpc('dasbor_deret', { p_dari: dari, p_sampai: sampai, p_satuan: r.satuan }),
+    // Saringan sales dibawa ke SEMUA panggilan, jadi tidak ada angka di
+    // layar yang diam-diam masih menghitung seluruh sales.
+    const sid = salesAktif;
+    const [ringkasRow, deret, sales, barang, kategori] = await Promise.all([
+      db.rpc('dasbor_ringkas', { p_dari: dari, p_sampai: sampai, p_sales_id: sid }),
+      db.rpc('dasbor_deret', { p_dari: dari, p_sampai: sampai, p_satuan: r.satuan, p_sales_id: sid }),
       db.rpc('dasbor_sales', { p_dari: dari, p_sampai: sampai }),
-      db.rpc('dasbor_barang', { p_dari: dari, p_sampai: sampai, p_limit: 12 }),
+      db.rpc('dasbor_barang', { p_dari: dari, p_sampai: sampai, p_limit: 0, p_sales_id: sid }),
+      db.rpc('dasbor_kategori', { p_dari: dari, p_sampai: sampai, p_sales_id: sid }),
     ]);
+
+    // Daftar sales diisi sekali, dari hasil yang TIDAK tersaring.
+    if (selSales.options.length <= 1 && (sales || []).length) {
+      selSales.insertAdjacentHTML('beforeend', sales.map((x) =>
+        `<option value="${esc(x.sales_id)}">${esc(x.nama || x.kode_sales || '—')}</option>`).join(''));
+      selSales.value = salesAktif || '';
+    }
 
     const s = (Array.isArray(ringkasRow) ? ringkasRow[0] : ringkasRow) || {};
     const omzet = Number(s.omzet) || 0;
     const margin = Number(s.margin) || 0;
     const berHpp = Number(s.omzet_ber_hpp) || 0;
     const cakupan = omzet > 0 ? Math.round((berHpp / omzet) * 100) : 0;
+    const tanpaKategori = (barang || [])
+      .filter((x) => !x.kategori_nama || x.kategori_nama === '(tanpa kategori)').length;
 
     wadah.innerHTML = `
       <div class="ringkas">
@@ -175,25 +269,27 @@ export async function gambar(isi, ctx) {
       </div>
 
       <div class="kartu">
-        <div class="judul-bagian">Sales</div>
+        <div class="judul-bagian">Sales${sid ? ' — semua, untuk perbandingan' : ''}</div>
         ${(sales || []).length ? `
-        <div class="grafik-gulir">
+        <div class="daftar-kartu">${kartuSales(sales, sid)}</div>
+        <div class="daftar-tabel grafik-gulir">
           <table class="sheet dasbor-tabel">
             <thead><tr>
-              <th style="min-width:130px">Nama</th>
-              <th style="min-width:100px">Omzet</th>
-              <th style="min-width:100px">Margin</th>
-              <th style="min-width:70px">Order</th>
-              <th style="min-width:110px">Toko/hari</th>
-              <th style="min-width:190px">Paling banyak dijual</th>
+              <th style="width:100px">Nama</th>
+              <th style="width:100px">Omzet</th>
+              <th style="width:100px">Margin</th>
+              <th style="width:56px">Order</th>
+              <th style="width:88px">Toko/hari</th>
+              <th style="width:110px">Paling banyak dijual</th>
             </tr></thead>
             <tbody>
               ${sales.map((x) => `
-                <tr>
+                <tr class="${x.sales_id === sid ? 'baris-pilih' : ''}">
                   <td><b>${esc(x.nama || '—')}</b>
-                    ${x.kode_sales ? `<span class="kode">${esc(x.kode_sales)}</span>` : ''}</td>
+                    ${x.kode_sales && x.kode_sales !== x.nama
+                      ? `<span class="kode">${esc(x.kode_sales)}</span>` : ''}</td>
                   <td class="num">${esc(penuh(x.omzet))}</td>
-                  <td class="num">${esc(penuh(x.margin))}</td>
+                  <td class="num">${esc(marginTeks(x.margin))}</td>
                   <td class="num">${esc(String(x.jml_order ?? 0))}</td>
                   <td class="num">${esc(String(x.rata_toko_per_hari ?? 0))}
                     <span class="ket-kecil">${esc(String(x.hari_aktif ?? 0))} hari aktif</span></td>
@@ -203,6 +299,7 @@ export async function gambar(isi, ctx) {
           </table>
         </div>
         <div class="bantuan">
+          ${sid ? 'Tabel ini tetap memuat semua sales supaya bisa dibandingkan; yang Anda pilih ditandai. Angka di bagian lain hanya milik sales itu.<br>' : ''}
           <b>Toko/hari</b> = rata-rata berapa toko berbeda yang ada ordernya,
           dihitung hanya pada hari sales itu benar-benar menjual — bukan dibagi
           seluruh hari di rentang ini.
@@ -210,25 +307,58 @@ export async function gambar(isi, ctx) {
       </div>
 
       <div class="kartu">
-        <div class="judul-bagian">Barang paling laku</div>
-        ${(barang || []).length ? `
-        <div class="grafik-gulir">
+        <div class="judul-bagian">Kategori paling banyak dijual</div>
+        ${(kategori || []).length ? `
+        <div class="daftar-kartu">${kartuKategori(kategori)}</div>
+        <div class="daftar-tabel grafik-gulir">
           <table class="sheet dasbor-tabel">
             <thead><tr>
-              <th style="min-width:200px">Barang</th>
-              <th style="min-width:110px">Terjual</th>
-              <th style="min-width:100px">Omzet</th>
-              <th style="min-width:100px">Margin</th>
+              <th style="width:150px">Kategori</th>
+              <th style="width:100px">Omzet</th>
+              <th style="width:100px">Margin</th>
+              <th style="width:70px">Barang</th>
+              <th style="width:56px">Order</th>
             </tr></thead>
             <tbody>
-              ${barang.map((x) => `
+              ${kategori.map((x) => `
                 <tr>
-                  <td>${esc(x.barang_nama)}</td>
-                  <td class="num">${esc(String(Number(x.qty) || 0))} ${esc(x.satuan || '')}</td>
+                  <td>${esc(x.kategori_nama)}</td>
                   <td class="num">${esc(penuh(x.omzet))}</td>
-                  <td class="num">${esc(penuh(x.margin))}</td>
+                  <td class="num">${esc(marginTeks(x.margin))}</td>
+                  <td class="num">${esc(String(x.jml_barang ?? 0))}</td>
+                  <td class="num">${esc(String(x.jml_order ?? 0))}</td>
                 </tr>`).join('')}
             </tbody>
+          </table>
+        </div>
+        ${tanpaKategori > 0 ? `
+        <div class="peringatan di-bawah">
+          <b>Kategori belum diisi</b>
+          ${esc(String(tanpaKategori))} dari ${esc(String((barang || []).length))} barang yang
+          terjual belum punya kategori, jadi daftar di atas belum bisa dipakai
+          mengambil keputusan. Isi kategorinya lewat Admin → Barang (edit massal),
+          baru angka ini jadi berarti.
+        </div>` : ''}` : '<div class="kosong-pesan">Belum ada order di rentang ini.</div>'}
+      </div>
+
+      <div class="kartu">
+        <div class="judul-bagian">Seluruh barang yang terjual</div>
+        ${(barang || []).length ? `
+        <input type="text" id="cari-barang" placeholder="Cari barang atau kategori…"
+               autocomplete="off">
+        <div class="bantuan" id="hitung-barang">${esc(String(barang.length))} barang berbeda terjual</div>
+        <div class="daftar-kartu gulir-tinggi" id="kartu-barang">${kartuBarang(barang)}</div>
+        <div class="daftar-tabel grafik-gulir gulir-tinggi">
+          <table class="sheet dasbor-tabel">
+            <thead><tr>
+              <th style="width:150px">Barang</th>
+              <th style="width:90px">Kategori</th>
+              <th style="width:80px">Terjual</th>
+              <th style="width:100px">Omzet</th>
+              <th style="width:100px">Margin</th>
+              <th style="width:48px">Toko</th>
+            </tr></thead>
+            <tbody id="isi-barang">${barisBarang(barang)}</tbody>
           </table>
         </div>` : '<div class="kosong-pesan">Belum ada order di rentang ini.</div>'}
       </div>
@@ -237,6 +367,22 @@ export async function gambar(isi, ctx) {
         ${esc(dari)} s/d ${esc(sampai)} · nilai penuh:
         omzet ${esc(rupiah(omzet))}, margin ${esc(rupiah(margin))}
       </div>`;
+
+    const kotakCari = wadah.querySelector('#cari-barang');
+    if (kotakCari) {
+      const isiBarang = wadah.querySelector('#isi-barang');
+      const hitung = wadah.querySelector('#hitung-barang');
+      kotakCari.addEventListener('input', () => {
+        const k = kotakCari.value.trim().toLowerCase();
+        const sisa = k
+          ? barang.filter((x) => (x.barang_nama || '').toLowerCase().includes(k)
+              || (x.kategori_nama || '').toLowerCase().includes(k))
+          : barang;
+        isiBarang.innerHTML = barisBarang(sisa);
+        wadah.querySelector('#kartu-barang').innerHTML = kartuBarang(sisa);
+        hitung.textContent = `${sisa.length} barang berbeda terjual`;
+      });
+    }
   }
 
   await muat();

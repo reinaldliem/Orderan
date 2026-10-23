@@ -1191,6 +1191,59 @@ table.sheet td:has(input[type=checkbox]) { text-align: center; }
 }
 .grafik-gulir svg { display: block; }
 
+/* Daftar seluruh barang bisa ratusan baris. Dibatasi tingginya supaya
+   bagian bawah dasbor tetap terjangkau, bukan digulir berkilo-kilo. */
+.gulir-tinggi { max-height: 62vh; overflow-y: auto; }
+.gulir-tinggi thead th { position: sticky; top: 0; z-index: 1; }
+
+/* Peringatan yang muncul DI BAWAH isi kartu, bukan di atasnya. */
+.peringatan.di-bawah { margin: 12px 0 0; }
+
+/* Baris sales yang sedang dipilih. Ditandai dengan bentuk (pita tinta di
+   tepi kiri), bukan warna latar — sama seperti penanda keadaan lain. */
+table.dasbor-tabel tr.baris-pilih td { background: var(--kraft-tua); }
+table.dasbor-tabel tr.baris-pilih td:first-child {
+  box-shadow: inset 4px 0 0 var(--tinta);
+}
+
+/* Bentuk HP untuk daftar dasbor. Tabel enam kolom tidak bisa dibaca di
+   layar 375px tanpa menggeser ke samping, jadi di HP tiap baris jadi satu
+   kartu: nama di atas, angkanya dalam kisi 2x2 yang tidak pernah meluber. */
+.kartu-angka {
+  border: 2px solid var(--garis-kuat);
+  padding: 12px; margin-bottom: 10px; background: var(--blok);
+}
+.kartu-angka:last-child { margin-bottom: 0; }
+.kartu-angka.baris-pilih { border-color: var(--tinta); box-shadow: inset 4px 0 0 var(--tinta); }
+.kartu-angka .nama-kartu { font-weight: 800; font-size: 14px; line-height: 1.3; }
+.kartu-angka .ket-kartu {
+  font-size: 11px; font-weight: 700; letter-spacing: .06em;
+  text-transform: uppercase; color: var(--tinta-2); margin-top: 3px;
+}
+.kartu-angka .sel-baris {
+  display: grid; grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px; margin-top: 10px;
+}
+.sel-kartu { min-width: 0; }
+.sel-kartu span {
+  display: block; font-size: 10px; font-weight: 700;
+  letter-spacing: .12em; text-transform: uppercase; color: var(--tinta-2);
+}
+.sel-kartu b {
+  display: block; font-size: 15px; font-weight: 800;
+  font-variant-numeric: tabular-nums; overflow-wrap: anywhere;
+}
+.sel-kartu i {
+  display: block; font-style: normal; font-size: 10px; font-weight: 700;
+  letter-spacing: .1em; text-transform: uppercase; color: var(--tinta-2);
+}
+
+/* Di layar lebar, penyeleksi sales tidak perlu selebar halaman — kotak
+   sepanjang 1000px untuk empat nama hanya membuang ruang baca. */
+@media (min-width: 900px) {
+  body.meja #pilih-sales { max-width: 320px; }
+}
+
 .grafik-kunci {
   display: flex; gap: 16px; margin-top: 10px;
   font-size: 10.5px; font-weight: 700;
@@ -1204,8 +1257,24 @@ table.sheet td:has(input[type=checkbox]) { text-align: center; }
 
 /* Tabel dasbor memakai kisi yang sama dengan edit massal, tapi isinya
    tidak bisa diketik — jadi selnya lebih rapat. */
-table.dasbor-tabel td { padding: 10px; font-size: 13.5px; }
-table.dasbor-tabel td.num { font-variant-numeric: tabular-nums; font-weight: 700; }
+/* Lebar kolom pada <th> mengikat: isi yang kepanjangan turun baris,
+   bukan mendorong tabel melebihi kartunya. Tanpa ini, satu nama barang
+   panjang saja sudah membuat seluruh tabel harus digeser ke samping. */
+table.dasbor-tabel { width: 100%; table-layout: fixed; }
+/* .sheet memberi semua selnya white-space: nowrap — pas untuk lembar kerja
+   yang memang digeser, tapi di sini membuat nama barang menimpa kolom
+   sebelahnya. Di tabel dasbor teks boleh turun baris. */
+table.dasbor-tabel th, table.dasbor-tabel td { white-space: normal; }
+table.dasbor-tabel td { padding: 10px; font-size: 13.5px; overflow-wrap: anywhere; }
+/* Angka tidak boleh patah di tengah: "16.354.50 / 0" terbaca sebagai dua
+   bilangan. Hanya sel teks yang boleh turun baris. */
+table.dasbor-tabel td.num {
+  font-variant-numeric: tabular-nums; font-weight: 700;
+  white-space: nowrap; overflow-wrap: normal;
+}
+/* Keterangan kecil di bawah angka adalah kata-kata, bukan bilangan —
+   nowrap dari sel angka tidak berlaku untuknya. */
+table.dasbor-tabel td.num .ket-kecil { white-space: normal; }
 table.dasbor-tabel .ket-kecil {
   display: block; font-size: 10.5px; font-weight: 700;
   letter-spacing: .1em; text-transform: uppercase;
