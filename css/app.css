@@ -270,6 +270,17 @@ body.kb-open .btn.blok-bawah, body.tanpa-bar .btn.blok-bawah { bottom: 12px; }
 .tombol-baris { display: flex; gap: 10px; }
 .tombol-baris > * { flex: 1 1 0; min-width: 0; }
 
+/* Baris ALAT: tombol sebanyak lima, bukan dua. Pembagian rata memberi
+   tiap tombol 51px sementara tulisannya butuh 62px — hasilnya teks
+   menembus kotaknya, persis yang terlihat di HP. Di sini lebar tombol
+   ditentukan oleh tulisannya sendiri (min-width: max-content) dan yang
+   tidak muat TURUN BARIS. Lebih tinggi sedikit jauh lebih baik daripada
+   tulisan terpotong. */
+.tombol-baris.alat { flex-wrap: wrap; }
+.tombol-baris.alat > * {
+  flex: 1 1 auto; width: auto; min-width: max-content;
+}
+
 /* ---------- Dropdown pilihan (bukan <datalist>) ---------- */
 .pilih {
   width: 100%; text-align: left;
@@ -511,6 +522,9 @@ body.kb-open .btn.blok-bawah, body.tanpa-bar .btn.blok-bawah { bottom: 12px; }
 }
 .tanda.usul  { border-style: dashed; color: var(--tunggu); border-color: var(--tunggu); }
 .tanda.mati  { color: var(--sinyal); border-color: var(--sinyal); text-decoration: line-through; }
+/* Usulan yang ditolak: garis penuh + dicoret, berbeda bentuk dari usulan
+   yang masih menunggu (putus-putus) maupun dari master yang dinonaktifkan. */
+.tanda.tolak { color: var(--sinyal); border-color: var(--sinyal); text-decoration: line-through; }
 .tanda.admin { background: var(--tinta); border-color: var(--tinta); color: var(--blok); }
 /* Status nota satu order di Riwayat sales: putus-putus = belum, garis penuh =
    sebagian barang, blok tinta = semua barang sudah dibuatkan nota. */
@@ -1196,6 +1210,30 @@ table.sheet td:has(input[type=checkbox]) { text-align: center; }
 .gulir-tinggi { max-height: 62vh; overflow-y: auto; }
 .gulir-tinggi thead th { position: sticky; top: 0; z-index: 1; }
 
+/* ---------- Grafik tren barang ---------- */
+.tren-daftar { display: grid; gap: 12px; }
+.tren-baris { border: 2px solid var(--garis-kuat); padding: 11px 12px; min-width: 0; }
+.tren-kepala { display: flex; gap: 9px; align-items: baseline; min-width: 0; }
+.tren-no {
+  flex: 0 0 auto; font-family: var(--stensil); font-weight: 400; font-size: 17px;
+  line-height: 1; color: var(--tinta-2);
+}
+.tren-nama {
+  flex: 1 1 auto; min-width: 0; font-weight: 800; font-size: 14px; line-height: 1.25;
+  overflow-wrap: anywhere;
+}
+.tren-svg { display: block; width: 100%; height: 48px; margin: 9px 0 7px; }
+.tren-angka {
+  font-size: 11px; font-weight: 700; letter-spacing: .07em; text-transform: uppercase;
+  color: var(--tinta-2); overflow-wrap: anywhere;
+}
+.tren-angka b { color: var(--tinta); }
+
+/* Di layar lebar, dua garis muat berdampingan tanpa jadi kecil. */
+@media (min-width: 900px) {
+  body.meja .tren-daftar { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
 /* Peringatan yang muncul DI BAWAH isi kartu, bukan di atasnya. */
 .peringatan.di-bawah { margin: 12px 0 0; }
 
@@ -1215,10 +1253,16 @@ table.dasbor-tabel tr.baris-pilih td:first-child {
 }
 .kartu-angka:last-child { margin-bottom: 0; }
 .kartu-angka.baris-pilih { border-color: var(--tinta); box-shadow: inset 4px 0 0 var(--tinta); }
-.kartu-angka .nama-kartu { font-weight: 800; font-size: 14px; line-height: 1.3; }
+/* Nama barang dan kategori datang apa adanya dari program pemilik —
+   ada yang panjang tanpa spasi. Tanpa ini ia menembus tepi kartu. */
+.kartu-angka .nama-kartu {
+  font-weight: 800; font-size: 14px; line-height: 1.3;
+  overflow-wrap: anywhere; min-width: 0;
+}
 .kartu-angka .ket-kartu {
   font-size: 11px; font-weight: 700; letter-spacing: .06em;
   text-transform: uppercase; color: var(--tinta-2); margin-top: 3px;
+  overflow-wrap: anywhere; min-width: 0;
 }
 .kartu-angka .sel-baris {
   display: grid; grid-template-columns: repeat(2, minmax(0, 1fr));

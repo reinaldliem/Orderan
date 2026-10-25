@@ -1081,7 +1081,30 @@ function bukaFormBarang(r, ctx, selesai) {
     </label>` : '<div style="height:14px"></div>'}
     <button type="button" class="btn" id="fb-simpan">
       ${ubah ? 'Simpan perubahan' : 'Simpan barang'}
-    </button>`);
+    </button>
+    ${ubah && r.sumber === 'ditolak' ? `
+    <button type="button" class="btn abu" id="fb-kembali" style="margin-top:10px">
+      Kembalikan jadi usulan
+    </button>
+    <div class="bantuan">
+      Usulan ini sudah ditolak, jadi tidak muncul lagi di pilihan sales.
+      Order lamanya tetap utuh.
+    </div>` : ''}
+    ${ubah && r.sumber !== 'ditolak' ? `
+    <button type="button" class="btn abu" id="fb-hapus"
+            style="margin-top:10px;color:var(--sinyal);border-color:var(--sinyal)">
+      ${r.sumber === 'sales' ? 'Buang usulan ini' : 'Hapus barang ini'}
+    </button>
+    <div class="bantuan">
+      ${r.sumber === 'sales'
+        ? 'Usulan yang belum pernah dipakai order benar-benar dihapus. Yang '
+          + 'sudah terpakai ditandai ditolak dan hilang dari pilihan sales — '
+          + 'ordernya tetap utuh, karena menghapusnya berarti ikut menghapus '
+          + 'riwayat penjualan itu.'
+        : 'Barang yang sudah pernah dipakai di order tidak bisa dihapus — '
+          + 'database menolaknya. Kalau begitu, hilangkan centang di atas '
+          + 'supaya tidak muncul lagi saat sales membuat order.'}
+    </div>` : ''}`);
 
   const form = buatFormBarang({
     // Saat mengubah, satu barang saja — daftar ukuran tidak masuk akal di sini.
@@ -1099,6 +1122,57 @@ function bukaFormBarang(r, ctx, selesai) {
   tirai.querySelector('#fb-slot').appendChild(form.el);
 
   tirai.addEventListener('click', async (e) => {
+    if (e.target.closest('#fb-kembali')) {
+      const k = tirai.querySelector('#fb-kembali');
+      k.disabled = true; k.textContent = 'Mengembalikan…';
+      try {
+        await db.rpc('batal_tolak', { p_tabel: 'barang', p_id: r.id });
+        pesan('Dikembalikan jadi usulan.', 'ok');
+        tirai.remove();
+        await selesai();
+        ctx.segarkanMaster({ paksa: true }).catch(() => {});
+      } catch (err) {
+        pesan(err.message, 'salah');
+        k.disabled = false; k.textContent = 'Kembalikan jadi usulan';
+      }
+      return;
+    }
+
+    if (e.target.closest('#fb-hapus')) {
+      const usulan = r.sumber === 'sales';
+      const ya = await tanya(
+        usulan ? 'Buang usulan ini?' : 'Hapus barang ini?',
+        usulan
+          ? `"${r.nama}" akan hilang dari pilihan sales. Kalau sudah pernah `
+            + 'dipakai order, ia ditandai ditolak dan order lamanya tetap utuh.'
+          : `${r.nama} akan hilang permanen. Tindakan ini tidak bisa dibatalkan.`,
+        usulan ? 'Ya, buang' : 'Ya, hapus');
+      if (!ya) return;
+      const h = tirai.querySelector('#fb-hapus');
+      const labelAwal = h.textContent;
+      h.disabled = true; h.textContent = 'Memproses…';
+      try {
+        if (usulan) {
+          const hasil = await db.rpc('tolak_usulan', { p_tabel: 'barang', p_id: r.id });
+          const d = Array.isArray(hasil) ? hasil[0] : hasil;
+          pesan(d?.tindakan === 'dihapus'
+            ? 'Usulan terhapus.'
+            : `Ditolak dan disembunyikan — dipakai di ${d?.dipakai ?? 0} order, `
+              + 'jadi riwayatnya dibiarkan utuh.', 'ok');
+        } else {
+          await db.hapus('barang', r.id);
+          pesan('Terhapus.', 'ok');
+        }
+        tirai.remove();
+        await selesai();
+        ctx.segarkanMaster({ paksa: true }).catch(() => {});
+      } catch (err) {
+        pesan(err.message, 'salah');
+        h.disabled = false; h.textContent = labelAwal;
+      }
+      return;
+    }
+
     if (!e.target.closest('#fb-simpan')) return;
 
     const keliru = form.salah();
@@ -1276,33 +1350,46 @@ function sheetMassal(o, data, kat, muat, ctx) {
       if (!pilihan.length) return;
       const ya = await tanya(
         `Hapus ${pilihan.length} ${o.judul.toLowerCase()}?`,
-        'Yang sudah pernah dipakai di order akan ditolak database dan tetap ada. '
+        'Usulan sales yang sudah dipakai order akan ditandai ditolak dan '
+        + 'disembunyikan, bukan dihapus — supaya riwayat ordernya tetap utuh. '
         + 'Sisanya hilang permanen.', 'Ya, hapus');
       if (!ya) return;
 
       hapusEl.disabled = true;
       let hilang = 0;
+      let disembunyikan = 0;
       const tolak = [];
       for (const tr of pilihan) {
         const id = tr.dataset.id;
+        const baris = asli.get(id);
         try {
-          await db.hapus(o.tabel, id);
+          if (baris?.sumber === 'sales') {
+            const hasil = await db.rpc('tolak_usulan', { p_tabel: o.tabel, p_id: id });
+            const d = Array.isArray(hasil) ? hasil[0] : hasil;
+            if (d?.tindakan === 'dihapus') hilang += 1; else disembunyikan += 1;
+          } else {
+            await db.hapus(o.tabel, id);
+            hilang += 1;
+          }
           asli.delete(id);
           tr.remove();
-          hilang += 1;
         } catch (err) {
           tr.style.background = 'var(--sinyal-muda)';
           tr.title = err.message;
-          tolak.push(`${asli.get(id)?.nama || id}: ${err.message}`);
+          tolak.push(`${baris?.nama || id}: ${err.message}`);
         }
-        hapusEl.textContent = `Menghapus ${hilang}/${pilihan.length}…`;
+        hapusEl.textContent = `Memproses ${hilang + disembunyikan}/${pilihan.length}…`;
       }
 
       segarkanHitung();
+      const ringkas = [
+        hilang ? `${hilang} terhapus` : '',
+        disembunyikan ? `${disembunyikan} ditolak & disembunyikan` : '',
+      ].filter(Boolean).join(', ');
       if (tolak.length) {
-        pesan(`${hilang} terhapus, ${tolak.length} ditolak. ${tolak[0]}`, 'salah');
+        pesan(`${ringkas || '0 diproses'}, ${tolak.length} gagal. ${tolak[0]}`, 'salah');
       } else {
-        pesan(`${hilang} ${o.judul.toLowerCase()} terhapus.`, 'ok');
+        pesan(`${ringkas}.`, 'ok');
       }
       await muat();
       ctx.segarkanMaster({ paksa: true }).catch(() => {});
@@ -1528,13 +1615,15 @@ async function tabMaster(panel, ctx, o) {
   panel.innerHTML = `
     <div class="kartu">
       <input type="text" id="cari" placeholder="Cari ${esc(o.judul.toLowerCase())}…" autocomplete="off">
-      <div class="tombol-baris" style="margin-top:10px">
-        <button type="button" class="btn kecil" id="btn-tambah" style="width:auto">+ Tambah</button>
-        <button type="button" class="btn abu kecil" id="btn-impor" style="width:auto">${ikon('tempel', 17)}Tempel dari Excel</button>
-        <button type="button" class="btn abu kecil" id="btn-kategori" style="width:auto">Kategori</button>
-          <button type="button" class="btn abu kecil" id="btn-massal" style="width:auto">Edit massal</button>
-          <button type="button" class="btn abu kecil" id="btn-usulan" style="width:auto"
-                  aria-pressed="false">Usulan sales</button>
+      <div class="saring" id="saring-sumber" role="group" aria-label="Penyaring daftar">
+        <button type="button" data-u="semua" class="aktif" aria-pressed="true">Semua</button>
+        <button type="button" data-u="usulan" id="btn-usulan" aria-pressed="false">Usulan sales</button>
+      </div>
+      <button type="button" class="btn" id="btn-tambah" style="margin-top:10px">+ Tambah</button>
+      <div class="tombol-baris alat" style="margin-top:10px">
+        <button type="button" class="btn abu kecil" id="btn-impor">${ikon('tempel', 17)}Tempel dari Excel</button>
+        <button type="button" class="btn abu kecil" id="btn-kategori">Kategori</button>
+        <button type="button" class="btn abu kecil" id="btn-massal">Edit massal</button>
       </div>
       <div class="bantuan" id="hitung"></div>
     </div>
@@ -1568,11 +1657,14 @@ async function tabMaster(panel, ctx, o) {
     }
 
     const elUsulan = panel.querySelector('#btn-usulan');
+    const elSemua = panel.querySelector('[data-u="semua"]');
     if (elUsulan) {
-      elUsulan.textContent = hanyaUsulan ? 'Tampilkan semua' : `Usulan sales (${jmlUsulan})`;
+      elUsulan.textContent = `Usulan sales (${jmlUsulan})`;
+      elUsulan.classList.toggle('aktif', hanyaUsulan);
       elUsulan.setAttribute('aria-pressed', hanyaUsulan ? 'true' : 'false');
-      elUsulan.classList.toggle('abu', !hanyaUsulan);
       elUsulan.disabled = jmlUsulan === 0 && !hanyaUsulan;
+      elSemua.classList.toggle('aktif', !hanyaUsulan);
+      elSemua.setAttribute('aria-pressed', hanyaUsulan ? 'false' : 'true');
     }
 
     if (!cocok.length) {
@@ -1584,7 +1676,8 @@ async function tabMaster(panel, ctx, o) {
 
     const tanda = (r) =>
       (r.sumber === 'sales' ? '<span class="tanda usul">usulan sales</span>' : '') +
-      (!r.aktif ? '<span class="tanda mati">nonaktif</span>' : '');
+      (r.sumber === 'ditolak' ? '<span class="tanda tolak">usulan ditolak</span>' : '') +
+      (!r.aktif && r.sumber !== 'ditolak' ? '<span class="tanda mati">nonaktif</span>' : '');
 
     // Dua bentuk dari data yang sama; CSS yang memilih: kartu di HP, tabel
     // lebar di komputer (mode desktop admin). Tahan ubah-ukuran jendela.
@@ -1655,38 +1748,84 @@ async function tabMaster(panel, ctx, o) {
             Tampilkan di daftar pilihan sales
           </label>
           <button type="button" class="btn" id="e-simpan">Simpan perubahan</button>
+          ${r.sumber === 'ditolak' ? `
+          <button type="button" class="btn abu" id="e-kembali" style="margin-top:10px">
+            Kembalikan jadi usulan
+          </button>
+          <div class="bantuan">
+            Usulan ini sudah ditolak, jadi tidak lagi muncul di pilihan sales.
+            Ordernya yang lama tetap utuh.
+          </div>` : `
           <button type="button" class="btn abu" id="e-hapus"
                   style="margin-top:10px;color:var(--sinyal);border-color:var(--sinyal)">
             Hapus ${esc(o.judul.toLowerCase())} ini
           </button>
           <div class="bantuan">
-            Yang sudah pernah dipakai di order tidak bisa dihapus — database
-            menolaknya. Kalau begitu, hilangkan centang di atas supaya tidak
-            muncul lagi saat sales membuat order.
-          </div>
+            ${r.sumber === 'sales'
+              ? 'Kalau usulan ini belum pernah dipakai order, ia benar-benar '
+                + 'dihapus. Kalau sudah terpakai, ia ditandai ditolak dan '
+                + 'hilang dari pilihan sales — order lamanya tetap utuh, '
+                + 'karena menghapusnya berarti ikut menghapus riwayat itu.'
+              : 'Yang sudah pernah dipakai di order tidak bisa dihapus — database '
+                + 'menolaknya. Kalau begitu, hilangkan centang di atas supaya tidak '
+                + 'muncul lagi saat sales membuat order.'}
+          </div>`}
         </div>
       </div>`;
 
     tirai.addEventListener('click', async (e) => {
       if (e.target.closest('.tutup')) { tirai.remove(); return; }
 
-      if (e.target.closest('#e-hapus')) {
-        const ya = await tanya(
-          `Hapus ${o.judul.toLowerCase()} ini?`,
-          `${r.nama} akan hilang permanen. Tindakan ini tidak bisa dibatalkan.`,
-          'Ya, hapus');
-        if (!ya) return;
-        const h = tirai.querySelector('#e-hapus');
-        h.disabled = true; h.textContent = 'Menghapus…';
+      if (e.target.closest('#e-kembali')) {
+        const k = tirai.querySelector('#e-kembali');
+        k.disabled = true; k.textContent = 'Mengembalikan…';
         try {
-          await db.hapus(o.tabel, r.id);
-          pesan('Terhapus.', 'ok');
+          await db.rpc('batal_tolak', { p_tabel: o.tabel, p_id: r.id });
+          pesan('Dikembalikan jadi usulan.', 'ok');
           tirai.remove();
           await muat();
           ctx.segarkanMaster({ paksa: true }).catch(() => {});
         } catch (err) {
           pesan(err.message, 'salah');
-          h.disabled = false; h.textContent = `Hapus ${o.judul.toLowerCase()} ini`;
+          k.disabled = false; k.textContent = 'Kembalikan jadi usulan';
+        }
+        return;
+      }
+
+      if (e.target.closest('#e-hapus')) {
+        const usulan = r.sumber === 'sales';
+        const ya = await tanya(
+          usulan ? 'Hapus usulan ini?' : `Hapus ${o.judul.toLowerCase()} ini?`,
+          usulan
+            ? `"${r.nama}" akan hilang dari pilihan sales. Kalau sudah pernah `
+              + 'dipakai order, ia ditandai ditolak dan order lamanya tetap utuh.'
+            : `${r.nama} akan hilang permanen. Tindakan ini tidak bisa dibatalkan.`,
+          usulan ? 'Ya, buang' : 'Ya, hapus');
+        if (!ya) return;
+        const h = tirai.querySelector('#e-hapus');
+        h.disabled = true; h.textContent = 'Memproses…';
+        try {
+          if (usulan) {
+            // Satu panggilan yang memutuskan sendiri: hapus kalau belum
+            // pernah dipakai, tandai ditolak kalau sudah. Dua langkah dari
+            // HP berarti ada keadaan menggantung saat sinyal putus.
+            const hasil = await db.rpc('tolak_usulan', { p_tabel: o.tabel, p_id: r.id });
+            const d = Array.isArray(hasil) ? hasil[0] : hasil;
+            pesan(d?.tindakan === 'dihapus'
+              ? 'Usulan terhapus.'
+              : `Ditolak dan disembunyikan — dipakai di ${d?.dipakai ?? 0} order, `
+                + 'jadi riwayatnya dibiarkan utuh.', 'ok');
+          } else {
+            await db.hapus(o.tabel, r.id);
+            pesan('Terhapus.', 'ok');
+          }
+          tirai.remove();
+          await muat();
+          ctx.segarkanMaster({ paksa: true }).catch(() => {});
+        } catch (err) {
+          pesan(err.message, 'salah');
+          h.disabled = false;
+          h.textContent = `Hapus ${o.judul.toLowerCase()} ini`;
         }
         return;
       }
@@ -1760,8 +1899,12 @@ async function tabMaster(panel, ctx, o) {
     document.body.appendChild(tirai);
   });
 
-  panel.querySelector('#btn-usulan').addEventListener('click', () => {
-    hanyaUsulan = !hanyaUsulan;
+  panel.querySelector('#saring-sumber').addEventListener('click', (e) => {
+    const b = e.target.closest('[data-u]');
+    if (!b) return;
+    const mau = b.dataset.u === 'usulan';
+    if (mau === hanyaUsulan) return;
+    hanyaUsulan = mau;
     gambarList();
   });
 

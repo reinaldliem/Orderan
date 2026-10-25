@@ -100,11 +100,14 @@ const HALAMAN = {
   // melihat apa. Perilaku sales dan admin TETAP SAMA seperti sebelumnya.
   riwayat: { judul: 'Order Saya', ikon: 'riwayat', label: 'Riwayat', modul: './pages/riwayat.js', peranBoleh: ['sales'] },
   admin:   { judul: 'Admin',      ikon: 'admin',   label: 'Admin',   modul: './pages/admin.js',   peranBoleh: ['admin', 'ceo'] },
-  dasbor:  { judul: 'Dasbor',     ikon: 'dasbor',  label: 'Dasbor',  modul: './pages/ceo.js',     peranBoleh: ['admin', 'ceo'] },
+  dasbor:  { judul: 'Dasbor',     ikon: 'dasbor',  label: 'Dasbor',  modul: './pages/ceo.js',     peranBoleh: ['ceo'] },
 };
 
-/** Halaman pertama yang boleh dibuka peran ini. */
+/** Halaman pertama yang boleh dibuka peran ini.
+ *  CEO mendarat di Dasbor: itu satu-satunya halaman yang dibuat untuk
+ *  dia, sisanya sama dengan yang dilihat admin. */
 function halamanPertama(peran) {
+  if (peran === 'ceo' && HALAMAN.dasbor.peranBoleh.includes('ceo')) return 'dasbor';
   const e = Object.entries(HALAMAN).find(([, v]) => v.peranBoleh.includes(peran));
   return e ? e[0] : null;
 }
@@ -118,7 +121,7 @@ function rutaSekarang() {
 // tetap bar bawah + tab di halaman Admin. Bagian Admin punya alamat sendiri
 // (#/admin/toko, …); yang aktif ditandai admin.js setelah tabnya ditentukan.
 const MENU_SAMPING = [
-  { bagian: 'dasbor', href: '#/dasbor',       ikon: 'dasbor', label: 'Dasbor', untuk: ['admin', 'ceo'] },
+  { bagian: 'dasbor', href: '#/dasbor',       ikon: 'dasbor', label: 'Dasbor', untuk: ['ceo'] },
   { bagian: 'order',  href: '#/admin/order',  ikon: 'nota',   label: 'Order',  untuk: ['admin', 'ceo'] },
   { bagian: 'buat',   href: '#/order',        ikon: 'tambah', label: 'Buat order', untuk: ['sales', 'admin'] },
   { bagian: 'riwayat', href: '#/riwayat',     ikon: 'riwayat', label: 'Order saya', untuk: ['sales'] },

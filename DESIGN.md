@@ -371,6 +371,9 @@ yang membuatnya terbaca sebagai cap, bukan sebagai lencana.
 - **State:** Dibedakan **bentuk**, bukan warna — garis penuh untuk
   keadaan netral, garis putus-putus untuk yang menunggu, teks dicoret
   untuk yang mati, dan pembalikan penuh (ladang tinta) untuk admin.
+- **Usulan sales:** garis putus-putus (menunggu diperiksa). Setelah
+  ditolak, chip-nya berganti jadi garis penuh **dicoret** — bentuk yang
+  berbeda, bukan warna yang berbeda.
 
 ### Cards / Containers
 - **Corner Style:** Nol.
@@ -495,6 +498,26 @@ Sengaja ringan — pemilik menolak tab kotak masuk berisi kartu order ("terlalu 
 Kotak bergaris tinta 3px berisi ikon centang dan kata TERSIMPAN,
 diputar −1,5°, diikuti nomor order Anton 40px. Menggantikan tanda
 centang hijau raksasa yang biasa dipakai untuk konfirmasi.
+
+### Garis Tren (dasbor CEO)
+Satu garis kecil per barang di dalam kotak bergaris, bukan lima garis di
+satu sumbu. Tiap garis memakai **skalanya sendiri** karena barang teratas
+bisa sepuluh kali lipat yang di bawahnya; yang dibaca adalah BENTUKNYA.
+Isinya diarsir `--kraft-tua`, garisnya tinta 2px dengan `miter`/`square`
+dan `vector-effect: non-scaling-stroke` supaya tidak menebal saat
+diregangkan. Satu titik data digambar sebagai kotak 6px, bukan garis.
+Angka besarnya ditulis di bawahnya — garis tanpa ukuran hanya hiasan.
+
+### Baris Alat (`.tombol-baris.alat`)
+Untuk baris berisi lebih dari dua tombol. Pembagian rata (`flex: 1 1 0`)
+memberi tiap tombol lebih sempit daripada tulisannya, dan teks menembus
+kotaknya. Di sini lebar ditentukan tulisan sendiri
+(`min-width: max-content`) dan yang tidak muat **turun baris**. Lebih
+tinggi sedikit selalu lebih baik daripada tulisan terpotong.
+
+Yang berupa **penyaring** tidak boleh ikut berdiri di baris ini: ia pindah
+ke `.saring` di bawah kotak cari. Tombol tindakan dan tombol keadaan
+berbeda pekerjaan, jadi berbeda tempat.
 
 ## Do's and Don'ts
 

@@ -116,6 +116,88 @@ function grafikBatang(deret, satuan) {
     </div>`;
 }
 
+/**
+ * Satu garis per barang, bukan lima garis di satu sumbu.
+ *
+ * Alasannya angka sendiri: barang teratas 54 juta, yang di bawahnya 2-6
+ * juta. Disatukan dalam satu skala, empat garis bawah jadi rata di dasar
+ * dan tidak ada yang bisa dibaca. Masing-masing dengan skalanya sendiri
+ * memperlihatkan BENTUK penjualan tiap barang — dan itu yang dicari dari
+ * kata "tren". Puncaknya ditulis supaya garis tidak jadi hiasan tanpa
+ * ukuran.
+ */
+function garisTren(titik, periode) {
+  const L = 2, R = 298, A = 6, Bw = 42;
+  const nilai = periode.map((p) => Number(titik.get(p) || 0));
+  const puncak = Math.max.apply(null, nilai.concat([1]));
+  const langkah = periode.length > 1 ? (R - L) / (periode.length - 1) : 0;
+  const ke = (v, i) => ({
+    x: L + i * langkah,
+    y: A + (Bw - A) * (1 - v / puncak),
+  });
+  const t = nilai.map(ke);
+  const garis = t.map((q) => `${q.x.toFixed(1)},${q.y.toFixed(1)}`).join(' ');
+  // Satu titik saja bukan garis. Digambar sebagai kotak supaya tetap terlihat.
+  const tunggal = t.length === 1;
+  const dasar = `${L},${Bw} ${garis} ${R},${Bw}`;
+  return `
+    <svg viewBox="0 0 300 48" class="tren-svg" preserveAspectRatio="none"
+         role="img" aria-label="Garis ${periode.length} periode, puncak ${esc(penuh(puncak))}">
+      <polygon points="${dasar}" fill="var(--kraft-tua)"></polygon>
+      ${tunggal
+        ? `<rect x="${(t[0].x - 3).toFixed(1)}" y="${(t[0].y - 3).toFixed(1)}" width="6" height="6" fill="var(--tinta)"></rect>`
+        : `<polyline points="${garis}" fill="none" stroke="var(--tinta)" stroke-width="2"
+             stroke-linejoin="miter" stroke-linecap="square" vector-effect="non-scaling-stroke"></polyline>`}
+    </svg>`;
+}
+
+/** Ubah hasil dasbor_barang_tren jadi satu baris per barang. */
+function rapikanTren(baris) {
+  const per = new Map();
+  (baris || []).forEach((r) => {
+    if (!per.has(r.barang_nama)) {
+      per.set(r.barang_nama, {
+        nama: r.barang_nama, peringkat: r.peringkat, satuan: r.satuan || '',
+        omzet: Number(r.total_omzet) || 0,
+        order: Number(r.total_order) || 0,
+        toko: Number(r.total_toko) || 0,
+        qty: Number(r.total_qty) || 0,
+        titik: new Map(),
+      });
+    }
+    per.get(r.barang_nama).titik.set(r.periode, r);
+  });
+  return [...per.values()].sort((a, b) => a.peringkat - b.peringkat);
+}
+
+/** Satu bagian grafik tren. `ambil` memilih angka mana yang digariskan. */
+function bagianTren(judul, ket, daftar, periode, ambil, ringkas) {
+  if (!daftar.length) {
+    return `<div class="kartu"><div class="judul-bagian">${esc(judul)}</div>
+      <div class="kosong-pesan">Belum ada order di rentang ini.</div></div>`;
+  }
+  return `
+    <div class="kartu">
+      <div class="judul-bagian">${esc(judul)}</div>
+      <div class="bantuan" style="margin-bottom:12px">${ket}</div>
+      <div class="tren-daftar">
+        ${daftar.map((b) => {
+          const titik = new Map();
+          b.titik.forEach((r, k) => titik.set(k, ambil(r)));
+          return `
+          <div class="tren-baris">
+            <div class="tren-kepala">
+              <span class="tren-no">${esc(String(b.peringkat))}</span>
+              <span class="tren-nama">${esc(b.nama)}</span>
+            </div>
+            ${garisTren(titik, periode)}
+            <div class="tren-angka">${ringkas(b)}</div>
+          </div>`;
+        }).join('')}
+      </div>
+    </div>`;
+}
+
 /** Satu baris angka di dalam kartu HP: label kecil di atas, angka di bawah. */
 function sel(label, nilai, ket) {
   return `<div class="sel-kartu"><span>${esc(label)}</span><b>${esc(String(nilai))}</b>${
@@ -218,12 +300,14 @@ export async function gambar(isi, ctx) {
     // Saringan sales dibawa ke SEMUA panggilan, jadi tidak ada angka di
     // layar yang diam-diam masih menghitung seluruh sales.
     const sid = salesAktif;
-    const [ringkasRow, deret, sales, barang, kategori] = await Promise.all([
+    const [ringkasRow, deret, sales, barang, kategori, topJual, topTren] = await Promise.all([
       db.rpc('dasbor_ringkas', { p_dari: dari, p_sampai: sampai, p_sales_id: sid }),
       db.rpc('dasbor_deret', { p_dari: dari, p_sampai: sampai, p_satuan: r.satuan, p_sales_id: sid }),
       db.rpc('dasbor_sales', { p_dari: dari, p_sampai: sampai }),
       db.rpc('dasbor_barang', { p_dari: dari, p_sampai: sampai, p_limit: 0, p_sales_id: sid }),
       db.rpc('dasbor_kategori', { p_dari: dari, p_sampai: sampai, p_sales_id: sid }),
+      db.rpc('dasbor_barang_tren', { p_dari: dari, p_sampai: sampai, p_satuan: r.satuan, p_sales_id: sid, p_urut: 'omzet', p_limit: 5 }),
+      db.rpc('dasbor_barang_tren', { p_dari: dari, p_sampai: sampai, p_satuan: r.satuan, p_sales_id: sid, p_urut: 'tren', p_limit: 5 }),
     ]);
 
     // Daftar sales diisi sekali, dari hasil yang TIDAK tersaring.
@@ -238,6 +322,13 @@ export async function gambar(isi, ctx) {
     const margin = Number(s.margin) || 0;
     const berHpp = Number(s.omzet_ber_hpp) || 0;
     const cakupan = omzet > 0 ? Math.round((berHpp / omzet) * 100) : 0;
+    // Sumbu waktu yang SAMA untuk semua garis, diambil dari deret
+    // keseluruhan. Kalau tiap barang memakai periodenya sendiri, dua garis
+    // bersebelahan akan punya arti sumbu yang berbeda — dan itu menipu.
+    const periode = (deret || []).map((d) => d.periode);
+    const jual = rapikanTren(topJual);
+    const tren = rapikanTren(topTren);
+
     const tanpaKategori = (barang || [])
       .filter((x) => !x.kategori_nama || x.kategori_nama === '(tanpa kategori)').length;
 
@@ -305,6 +396,23 @@ export async function gambar(isi, ctx) {
           seluruh hari di rentang ini.
         </div>` : '<div class="kosong-pesan">Belum ada order di rentang ini.</div>'}
       </div>
+
+      ${bagianTren(
+        'Barang omzet terbesar',
+        'Garis = omzet barang itu di tiap ' + esc(r.satuan) + '. Tiap barang memakai '
+        + 'skalanya sendiri, jadi yang dibaca BENTUKNYA — naik, turun, atau sekali ramai lalu diam.',
+        jual, periode, (x) => Number(x.omzet) || 0,
+        (b) => `<b>${esc(penuh(b.omzet))}</b> · ${esc(String(b.order))} order · `
+             + `${esc(String(b.toko))} toko · ${esc(penuh(b.qty))} ${esc(b.satuan)}`)}
+
+      ${bagianTren(
+        'Barang paling menyebar',
+        'Diurut dari berapa <b>toko berbeda</b> yang memesannya, baru berapa kali dipesan. '
+        + 'Garis = jumlah order di tiap ' + esc(r.satuan) + '. '
+        + '50 order dari satu toko itu satu pelanggan rajin; 10 order dari 10 toko itu barang yang sedang dicari orang.',
+        tren, periode, (x) => Number(x.jml_order) || 0,
+        (b) => `<b>${esc(String(b.toko))} toko</b> · ${esc(String(b.order))} order · `
+             + `${esc(penuh(b.omzet))}`)}
 
       <div class="kartu">
         <div class="judul-bagian">Kategori paling banyak dijual</div>
