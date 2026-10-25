@@ -109,7 +109,8 @@ function bacaDraf(tgl, uid) {
 
 function tampilkanBerhasil(isi, hasil, ctx) {
   // Admin tidak punya halaman Riwayat: ordernya terlihat di Admin → Order.
-  const adminkah = ctx.status?.profil?.peran === 'admin';
+  const peran = ctx.status?.profil?.peran;
+  const adminkah = peran === 'admin' || peran === 'ceo';
   // Order yang selesai dicap, bukan diberi tanda centang hijau raksasa:
   // nomornya distensil besar, totalnya duduk di blok terbalik.
   isi.innerHTML = `

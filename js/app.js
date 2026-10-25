@@ -94,7 +94,7 @@ export function hapusMasterLokal() {
 // admin sudah melihat SEMUA order di Admin → Order, jadi Riwayat tidak perlu;
 // halaman Order untuk membuat order tetap ada).
 const HALAMAN = {
-  order:   { judul: 'Buat Order', ikon: 'nota',    label: 'Order',   modul: './pages/order.js',   peranBoleh: ['sales', 'admin'] },
+  order:   { judul: 'Buat Order', ikon: 'nota',    label: 'Order',   modul: './pages/order.js',   peranBoleh: ['sales', 'admin', 'ceo'] },
   // peranBoleh menggantikan pasangan adminSaja/bukanAdmin: setelah ada
   // peran ceo, dua bendera boolean tidak lagi cukup menyatakan siapa
   // melihat apa. Perilaku sales dan admin TETAP SAMA seperti sebelumnya.
@@ -123,7 +123,7 @@ function rutaSekarang() {
 const MENU_SAMPING = [
   { bagian: 'dasbor', href: '#/dasbor',       ikon: 'dasbor', label: 'Dasbor', untuk: ['ceo'] },
   { bagian: 'order',  href: '#/admin/order',  ikon: 'nota',   label: 'Order',  untuk: ['admin', 'ceo'] },
-  { bagian: 'buat',   href: '#/order',        ikon: 'tambah', label: 'Buat order', untuk: ['sales', 'admin'] },
+  { bagian: 'buat',   href: '#/order',        ikon: 'tambah', label: 'Buat order', untuk: ['sales', 'ceo', 'admin'] },
   { bagian: 'riwayat', href: '#/riwayat',     ikon: 'riwayat', label: 'Order saya', untuk: ['sales'] },
   { bagian: 'toko',   href: '#/admin/toko',   ikon: 'toko',   label: 'Toko',   untuk: ['admin', 'ceo'] },
   { bagian: 'barang', href: '#/admin/barang', ikon: 'barang', label: 'Barang', untuk: ['admin', 'ceo'] },
@@ -133,7 +133,9 @@ const MENU_SAMPING = [
 function gambarKerangka(kunci) {
   const h = HALAMAN[kunci];
   const peran = status.profil?.peran;
-  const adminkah = peran === 'admin';
+  // CEO punya hak yang sama dengan admin (keputusan pemilik, 25 Okt 2026),
+  // jadi lonceng notifikasi pun miliknya.
+  const adminkah = peran === 'admin' || peran === 'ceo';
   // DUA MODE: mobile dan desktop, dan yang menentukan adalah LEBAR LAYAR,
   // bukan peran. Dulu hanya admin yang dapat meja kerja, jadi sales yang
   // membuka di laptop tetap melihat tampilan HP selebar 560px.
@@ -244,7 +246,8 @@ async function gambarHalaman() {
 // Bukan admin: tidak pernah bertanya ke server.
 // ------------------------------------------------------------
 function segarkanLencana() {
-  if (status.profil?.peran === 'admin') return notif.segarkan();
+  const p = status.profil?.peran;
+  if (p === 'admin' || p === 'ceo') return notif.segarkan();
 }
 
 function lupakanLencana() {

@@ -13,18 +13,7 @@ let tabAktif = 'order';
 let bukaOrderNanti = null;   // id order yang diminta lonceng notifikasi
 
 export async function gambar(isi, ctx) {
-  // CEO boleh melihat halaman ini, tapi RLS menolak setiap penulisannya.
-  // Lebih baik dikatakan di depan daripada dibiarkan jadi galat
-  // misterius saat tombol simpan ditekan.
-  const cumaLihat = ctx.status.profil?.peran === 'ceo';
-
   isi.innerHTML = `
-    ${cumaLihat ? `<div class="peringatan">
-      <b>Mode lihat saja</b>
-      Akun CEO bisa membuka semua data di sini, termasuk HPP, tetapi tidak
-      bisa mengubah, menambah, atau menghapus apa pun. Untuk perubahan,
-      masuk dengan akun admin.
-    </div>` : ''}
     <div class="tab" id="tab">
       <button type="button" data-t="order">${ikon('nota', 17)}Order</button>
       <button type="button" data-t="toko">${ikon('toko', 17)}Toko</button>
@@ -2034,7 +2023,8 @@ async function tabAkun(panel) {
               <td class="k-nama">${esc(p.nama)}</td>
               <td><span class="kode">${esc(p.username)}</span></td>
               <td>${esc(p.kode_sales || '—')}</td>
-              <td>${p.peran === 'admin' ? '<span class="tanda admin">admin</span>' : esc(p.peran)}</td>
+              <td>${p.peran === 'admin' || p.peran === 'ceo'
+                ? `<span class="tanda admin">${esc(p.peran)}</span>` : esc(p.peran)}</td>
               <td class="k-status">${p.aktif ? '<span class="ket-aktif">aktif</span>' : '<span class="tanda mati">nonaktif</span>'}</td>
               <td class="k-aksi">${aksi(p)}</td></tr>`).join('')}
             </tbody>
@@ -2048,7 +2038,8 @@ async function tabAkun(panel) {
         <div style="padding:13px 14px;display:flex;gap:10px;align-items:center">
           <div style="min-width:0;flex:1">
             <div style="font-weight:700;font-size:15.5px;letter-spacing:-.015em">${esc(p.nama)}
-              ${p.peran === 'admin' ? '<span class="tanda admin">admin</span>' : ''}
+              ${p.peran === 'admin' || p.peran === 'ceo'
+                ? `<span class="tanda admin">${esc(p.peran)}</span>` : ''}
               ${!p.aktif ? '<span class="tanda mati">nonaktif</span>' : ''}</div>
             <div style="font-size:12.5px;color:var(--teks-2);margin-top:4px;
                         display:flex;gap:6px;align-items:center;flex-wrap:wrap">
