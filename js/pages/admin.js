@@ -1997,7 +1997,8 @@ async function tabAkun(panel) {
       <div class="baris" style="margin-top:10px"><label class="label">Nama lengkap</label>
         <input type="text" id="a-nama" placeholder="Budi Santoso"></div>
       <div class="baris"><label class="label">Peran</label>
-        <select id="a-peran"><option value="sales">Sales</option><option value="admin">Admin</option></select></div>
+        <select id="a-peran"><option value="sales">Sales</option><option value="admin">Admin</option>
+          <option value="pemantau">Pemantau (skrip, hanya baca)</option></select></div>
       <button type="button" class="btn" id="a-simpan">Buat akun</button>
     </div>
     <div class="akun-daftar">

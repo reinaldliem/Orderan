@@ -202,6 +202,21 @@ async function keluarSekarang() {
   mulai();
 }
 
+/** Akun yang tidak punya halaman apa pun di aplikasi (pemantau). */
+function gambarTanpaHalaman() {
+  document.body.classList.add('tanpa-bar');
+  document.body.classList.remove('lebar', 'meja');
+  app.innerHTML = `
+    <main class="isi"><div class="kosong-pesan">
+      <span class="ikon">${ikon('peringatan', 40)}</span>
+      Akun <b>${esc(status.profil?.username || '')}</b> khusus untuk skrip
+      (Google Sheet / cadangan otomatis) dan tidak bisa membuka aplikasi.
+      <div style="margin-top:16px"><button type="button" class="btn abu kecil" id="btn-keluar">
+        ${ikon('keluar', 17)}Keluar</button></div>
+    </div></main>`;
+  app.querySelector('#btn-keluar').addEventListener('click', keluarSekarang);
+}
+
 let sedangGambar = false;
 
 async function gambarHalaman() {
@@ -216,7 +231,11 @@ async function gambarHalaman() {
     // alamat tetap yang bisa jadi juga terlarang baginya (CEO tidak
     // boleh membuka #/order, jadi melemparnya ke sana akan memutar).
     if (!h.peranBoleh.includes(status.profil?.peran)) {
-      location.hash = '#/' + (halamanPertama(status.profil?.peran) || 'order');
+      const tujuan = halamanPertama(status.profil?.peran);
+      // Peran tanpa halaman sama sekali (pemantau = akun skrip Sheet/cadangan):
+      // dulu dilempar ke #/order yang juga terlarang, layar diam di login.
+      if (!tujuan) { gambarTanpaHalaman(); return; }
+      location.hash = '#/' + tujuan;
       return;
     }
 
