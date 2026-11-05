@@ -979,7 +979,7 @@ async function tabBarang(panel, ctx) {
     judul: 'Barang',
     kolomImpor: 'Kode · Nama barang · Satuan · Harga jual · HPP',
     contoh: 'R041-003\tAFUR BCP STENLIS\tPCS\t25.000\t17.500',
-    select: 'id,kode,nama,satuan,harga_rekomendasi,berat_kg,kategori,kategori_id,sumber,aktif,barang_biaya(hpp)',
+    select: 'id,kode,nama,satuan,harga_rekomendasi,berat_kg,isi_koli,kategori,kategori_id,sumber,aktif,barang_biaya(hpp)',
     rpcImpor: 'impor_barang',
     kolomSheet: [
       { f: 'kode', label: 'Kode', lebar: 120 },
@@ -988,6 +988,7 @@ async function tabBarang(panel, ctx) {
       { f: 'harga_rekomendasi', label: 'Harga jual', lebar: 130, tipe: 'angka' },
       { f: 'hpp', label: 'HPP', lebar: 130, tipe: 'hpp' },
       { f: 'berat_kg', label: 'Berat/sat (kg)', lebar: 130, tipe: 'angka' },
+      { f: 'isi_koli', label: 'Isi 1 koli', lebar: 110, tipe: 'angka' },
       { f: 'kategori_id', label: 'Kategori', lebar: 150, tipe: 'kategori' },
       { f: 'aktif', label: 'Tampil', lebar: 70, tipe: 'aktif' },
     ],
@@ -1013,6 +1014,7 @@ async function tabBarang(panel, ctx) {
             ` · 1 ${r.satuan} = ${angka(berat)} kg`
           : `${rupiah(rek)} / ${r.satuan}`,
       ];
+      if (Number(r.isi_koli) > 0) bagian.push(`1 koli = ${angka(r.isi_koli)} ${r.satuan}`);
       if (r.kode) bagian.push(r.kode);
       if (hpp !== null) {
         // Untuk barang per-kilo, harga jual DAN HPP dua-duanya per kg,
@@ -1037,6 +1039,7 @@ async function tabBarang(panel, ctx) {
         return rek ? esc(rupiah(rek) + perKg) : (perKg ? 'per kg' : '—');
       } },
       { judul: 'Berat', kelas: 'ang', isi: (r) => (Number(r.berat_kg) ? esc(`${angka(r.berat_kg)} kg`) : '—') },
+      { judul: 'Isi koli', kelas: 'ang', isi: (r) => (Number(r.isi_koli) ? esc(`${angka(r.isi_koli)} ${r.satuan || ''}`.trim()) : '—') },
       { judul: 'HPP', kelas: 'ang', isi: (r) => {
         const hpp = bacaHpp(r);
         return hpp === null ? '—' : esc(rupiah(hpp) + (Number(r.berat_kg) ? '/kg' : ''));
@@ -1110,6 +1113,7 @@ function bukaFormBarang(r, ctx, selesai) {
       satuan: r.satuan,
       harga_rekomendasi: r.harga_rekomendasi,
       berat_kg: r.berat_kg,
+      isi_koli: r.isi_koli,
       kategori: r.kategori,
       hpp: bacaHpp(r),
     } : null,
@@ -1187,6 +1191,7 @@ function bukaFormBarang(r, ctx, selesai) {
           satuan: d.satuan,
           harga_rekomendasi: d.harga_rekomendasi,
           berat_kg: d.berat_kg,
+          isi_koli: d.isi_koli,
           kategori: d.kategori,
           aktif: tirai.querySelector('#fb-aktif').checked,
           sumber: 'master',

@@ -56,6 +56,11 @@ export function buatFormBarang(o = {}) {
         <label class="label" for="${uid}-kategori">Kategori (boleh dikosongkan)</label>
         <input type="text" id="${uid}-kategori" data-f="kategori">
       </div>
+      <div class="baris">
+        <label class="label" for="${uid}-koli">Isi 1 koli (boleh dikosongkan)</label>
+        <input type="text" id="${uid}-koli" data-f="koli" inputmode="decimal" placeholder="mis. 144">
+        <div class="bantuan" data-slot="jelas-koli"></div>
+      </div>
     </div>
 
     ${bolehUkuran ? `
@@ -109,6 +114,7 @@ export function buatFormBarang(o = {}) {
   const inSatuan = q('[data-f="satuan"]');
   const inKode = q('[data-f="kode"]');
   const inKategori = q('[data-f="kategori"]');
+  const inKoli = q('[data-f="koli"]');
   const inBerat = q('[data-f="berat"]');
   const inHarga = q('[data-f="harga"]');
   const inHpp = q('[data-f="hpp"]');
@@ -158,6 +164,8 @@ export function buatFormBarang(o = {}) {
     const kode = inKode.value.trim();
     const kategori = inKategori.value.trim() || null;
     const perKilo = dasar === 'kilo';
+    // Kosong = tidak punya koli. Berlaku sama untuk semua ukuran sekaligus.
+    const isiKoli = inKoli.value.trim() ? keAngka(inKoli.value) : null;
 
     if (!banyak) {
       const harga = keAngka(inHarga.value);
@@ -169,6 +177,7 @@ export function buatFormBarang(o = {}) {
         satuan,
         harga_rekomendasi: harga,
         berat_kg: perKilo && berat ? berat : null,
+        isi_koli: isiKoli,
         kategori,
         hpp,
       }];
@@ -191,6 +200,7 @@ export function buatFormBarang(o = {}) {
         satuan,
         harga_rekomendasi: harga,
         berat_kg: perKilo ? berat : null,
+        isi_koli: isiKoli,
         kategori,
         hpp: teksHpp ? keAngka(teksHpp) : null,
       });
@@ -201,6 +211,9 @@ export function buatFormBarang(o = {}) {
   /** @returns {string|null} */
   function salah() {
     if (!inNama.value.trim()) return 'Nama barang belum diisi.';
+    if (inKoli.value.trim() && !(keAngka(inKoli.value) > 0)) {
+      return 'Isi 1 koli harus angka lebih dari 0 — atau kosongkan kalau barang ini tidak punya koli.';
+    }
     const baris = susun();
     if (!baris.length) {
       return banyak
@@ -252,6 +265,10 @@ export function buatFormBarang(o = {}) {
 
     const sat = inSatuan.value.trim() || 'satuan';
     inBerat.previousElementSibling.textContent = `Berat 1 ${sat} (kg)`;
+    const koli = keAngka(inKoli.value);
+    q('[data-slot="jelas-koli"]').textContent = koli > 0
+      ? `Sales melihat "1 koli = ${angka(koli)} ${sat}". Jumlah di order tetap dalam ${sat}.`
+      : `Berapa ${sat} dalam 1 koli. Sales akan melihatnya saat memilih barang ini.`;
 
     // kolom & contoh tempelan ikut mode
     el.querySelectorAll('[data-u-blok="berat"]').forEach((d) => {
@@ -293,6 +310,7 @@ export function buatFormBarang(o = {}) {
           ? `${r.harga_rekomendasi ? rupiah(r.harga_rekomendasi) + '/kg · ' : ''}1 ${r.satuan} = ${angka(r.berat_kg)} kg`
           : `${rupiah(r.harga_rekomendasi)} / ${r.satuan}`;
         return `<div style="margin-top:5px">• ${esc(r.nama)} — ${esc(harga)}` +
+               `${r.isi_koli > 0 ? ' · 1 koli = ' + esc(angka(r.isi_koli)) + ' ' + esc(r.satuan) : ''}` +
                `${r.hpp ? ' · HPP ' + esc(rupiah(r.hpp)) + (r.berat_kg ? '/kg' : '') : ''}` +
                `${r.kode ? ' · <span class="kode">' + esc(r.kode) + '</span>' : ''}</div>`;
       }).join('');
@@ -309,7 +327,7 @@ export function buatFormBarang(o = {}) {
   });
 
   el.querySelectorAll('[data-f="nama"],[data-f="satuan"],[data-f="kode"],[data-f="kategori"],' +
-                      '[data-f="berat"],[data-f="harga"],[data-f="hpp"]')
+                      '[data-f="koli"],[data-f="berat"],[data-f="harga"],[data-f="hpp"]')
     .forEach((i) => i.addEventListener('input', gambar));
 
   cbBanyak?.addEventListener('change', () => {
@@ -337,6 +355,7 @@ export function buatFormBarang(o = {}) {
     inKategori.value = awal.kategori || '';
     if (awal.harga_rekomendasi) inHarga.value = angka(awal.harga_rekomendasi);
     if (awal.berat_kg) inBerat.value = angka(awal.berat_kg);
+    if (Number(awal.isi_koli) > 0) inKoli.value = angka(awal.isi_koli);
     if (awal.hpp !== null && awal.hpp !== undefined) inHpp.value = angka(awal.hpp);
   } else {
     inSatuan.value = 'PCS';

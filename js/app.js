@@ -59,7 +59,7 @@ async function ambilMaster() {
       select: 'id,kode,nama,kota,alamat', aktif: 'eq.true', order: 'nama.asc,id.asc', limit: 5000,
     }),
     db.pilih('barang', {
-      select: 'id,kode,nama,satuan,harga_rekomendasi,berat_kg',
+      select: 'id,kode,nama,satuan,harga_rekomendasi,berat_kg,isi_koli',
       aktif: 'eq.true', order: 'nama.asc,id.asc', limit: 5000,
     }),
     kode

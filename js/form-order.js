@@ -8,6 +8,22 @@ import { buatPilih } from './pilih.js';
 import { rupiah, angka, keAngka, pesan, tanya } from './util.js';
 
 /**
+ * Keterangan koli di bawah Jumlah: "1 koli = 144 PCS", atau setelah jumlah
+ * diisi "288 PCS = 2 koli" / "300 PCS = 2 koli + 12 PCS". Jumlah TETAP
+ * dalam satuan jual — koli hanya membantu sales menghitung, tidak mengubah
+ * harga maupun cara kerja barang per-kilo.
+ */
+export function teksKoli(qty, isi, sat) {
+  if (!isi) return '';
+  if (qty > 0 && qty >= isi) {
+    const koli = Math.floor(qty / isi + 1e-9);
+    const sisa = Math.round((qty - koli * isi) * 100) / 100;
+    return `${angka(qty)} ${sat} = ${angka(koli)} koli` + (sisa > 0 ? ` + ${angka(sisa)} ${sat}` : '');
+  }
+  return `1 koli = ${angka(isi)} ${sat}`;
+}
+
+/**
  * @param {object} o
  * @param {object} o.status            status aplikasi (punya .toko, .barang, .tokoSaya)
  * @param {object} [o.awal]            isi awal: {toko:{id,nama,info}, catatan, item:[...]}
@@ -85,6 +101,7 @@ export function buatFormOrder(o) {
   function dataBarang() {
     return o.status.barang.map((b) => {
       const berat = Number(b.berat_kg) || null;
+      const koli = Number(b.isi_koli) || null;
       const rek = Number(b.harga_rekomendasi) || 0;
       // Untuk barang per-kilo, harga_rekomendasi berarti harga per KG.
       const info = berat
@@ -94,17 +111,25 @@ export function buatFormOrder(o) {
       return {
         id: b.id,
         nama: b.nama,
-        info: info + (b.kode ? ` · ${b.kode}` : ''),
+        info: info + (koli ? ` · 1 koli = ${angka(koli)} ${b.satuan}` : '') + (b.kode ? ` · ${b.kode}` : ''),
         kata: b.kode || '',
         satuan: b.satuan,
         berat_kg: berat,
+        isi_koli: koli,
         harga_rekomendasi: rek,
       };
     });
   }
 
+  /** Isi koli barang dari master (untuk draf & ubah order yang hanya menyimpan id). */
+  function koliDari(barangId) {
+    if (!barangId) return null;
+    const b = o.status.barang.find((x) => String(x.id) === String(barangId));
+    return Number(b?.isi_koli) || null;
+  }
+
   function tambahItem(awal) {
-    const baris = { satuan: 'pcs', beratKg: null };
+    const baris = { satuan: 'pcs', beratKg: null, isiKoli: null };
 
     const kotak = document.createElement('div');
     kotak.className = 'item';
@@ -120,6 +145,7 @@ export function buatFormOrder(o) {
           <label class="label">Jumlah</label>
           <input type="text" class="qty" inputmode="decimal" placeholder="0" enterkeyhint="next">
           <div class="bantuan satuan-teks">satuan: -</div>
+          <div class="bantuan koli-teks" hidden></div>
         </div>
         <div>
           <label class="label label-harga">Harga satuan</label>
@@ -133,6 +159,7 @@ export function buatFormOrder(o) {
     const inHarga = kotak.querySelector('.harga');
     const elSub = kotak.querySelector('.sub');
     const elSatuan = kotak.querySelector('.satuan-teks');
+    const elKoli = kotak.querySelector('.koli-teks');
     const elRekom = kotak.querySelector('.rekom');
     const elLabelHarga = kotak.querySelector('.label-harga');
 
@@ -147,6 +174,7 @@ export function buatFormOrder(o) {
           const e = v.ekstra;
           baris.satuan = e.satuan;
           baris.beratKg = e.berat_kg || null;
+          baris.isiKoli = e.isi_koli || null;
           if (baris.beratKg) {
             elLabelHarga.textContent = 'Harga per kg';
             inHarga.placeholder = 'harga 1 kg';
@@ -163,6 +191,7 @@ export function buatFormOrder(o) {
         } else {
           baris.satuan = 'pcs';
           baris.beratKg = null;
+          baris.isiKoli = null;
           elLabelHarga.textContent = 'Harga satuan';
           inHarga.placeholder = '0';
           elSatuan.textContent = 'satuan: pcs (barang baru)';
@@ -215,6 +244,9 @@ export function buatFormOrder(o) {
     };
 
     baris.perbaruiInfo = (d) => {
+      const tk = teksKoli(d.qty, baris.isiKoli, baris.satuan);
+      elKoli.textContent = tk;
+      elKoli.hidden = !tk;
       if (!baris.beratKg) return;
       const sat = baris.satuan;
       elSatuan.textContent = d.qty
@@ -227,6 +259,7 @@ export function buatFormOrder(o) {
       if (d.barang_nama) {
         baris.satuan = d.satuan || 'pcs';
         baris.beratKg = Number(d.berat_kg) || null;
+        baris.isiKoli = koliDari(d.barang_id);
         let info = '';
         if (baris.beratKg) {
           info = `harga per kg · 1 ${baris.satuan} = ${angka(baris.beratKg)} kg`;
