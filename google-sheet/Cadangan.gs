@@ -201,8 +201,11 @@ function cadangkan() {
     const nama = AWALAN_BERKAS + jam + '.json';
     const blob = Utilities.newBlob(hasil.teks, 'application/json', nama);
     const f = folder.createFile(blob);
-    if (f.getSize() !== blob.getBytes().length) {
-      throw new Error('Berkas ' + nama + ' tersimpan tidak utuh (' + f.getSize() + ' byte).');
+    // Baca ulang dari Drive: yang dicek berkas yang benar-benar tersimpan.
+    const tersimpan = DriveApp.getFileById(f.getId()).getSize();
+    if (tersimpan !== blob.getBytes().length) {
+      throw new Error('Berkas ' + nama + ' tersimpan tidak utuh (' + tersimpan + ' dari ' +
+        blob.getBytes().length + ' byte).');
     }
 
     // Order turun drastis = kemungkinan ada yang terhapus. Cadangan tetap
@@ -223,7 +226,7 @@ function cadangkan() {
     p.setProperty('PESANAN_TERAKHIR', String(kini));
     p.setProperty('TERAKHIR_BERHASIL', jam);
 
-    const ringkas = 'Cadangan tersimpan: ' + nama + ' (' + Math.round(f.getSize() / 1024) + ' KB)\n' +
+    const ringkas = 'Cadangan tersimpan: ' + nama + ' (' + Math.round(tersimpan / 1024) + ' KB)\n' +
       'Isi: ' + d.urutan_pulih.map((t) => t + ' ' + d.jumlah[t]).join(', ') + '\n' +
       (dibuang ? dibuang + ' berkas lama dipindah ke Sampah.\n' : '') +
       'Folder: ' + folder.getUrl();

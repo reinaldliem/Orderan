@@ -139,6 +139,7 @@ export function buatFormOrder(o) {
     const pilihBarang = buatPilih({
       label: 'Nama barang',
       judul: 'Pilih barang',
+      ketMirip: 'Mungkin maksud Anda? Cek merek & ukurannya',
       placeholder: 'Ketuk untuk memilih barang…',
       data: dataBarang,
       saatPilih: (v) => {

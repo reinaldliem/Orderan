@@ -14,6 +14,7 @@ import { siapkan, cari as cariTeks } from './cocok.js';
  * @param {(hasil:{id:number|null, nama:string}) => void} o.saatPilih
  * @param {boolean} [o.bolehBaru]     izinkan nama ketikan bebas (default true)
  * @param {string}  [o.judul]         judul lembar pilihan
+ * @param {string}  [o.ketMirip]      judul daftar tawaran mirip (default "Mungkin maksud Anda?")
  * @param {Array<{kunci:string,teks:string,uji:(d:any)=>boolean}>} [o.saring]
  *        tombol saringan di dalam lembar (mis. "Toko saya" / "Semua toko")
  * @returns {{el:HTMLElement, set:(v:{id:number|null,nama:string}|null)=>void, nilai:()=>object|null}}
@@ -87,7 +88,8 @@ export function buatPilih(o) {
       // bebas, singkatan daftar dikenali — lihat cocok.js. Kalau tidak ada
       // yang cocok, barang yang MIRIP ditawarkan sebelum tombol nama baru,
       // supaya sales tidak membuat barang kembar dengan ejaan lain.
-      const { cocok, mirip } = cariTeks(siapPerSaring.get(saringAktif), q);
+      // Teks mentah (tidak di-trim): spasi di akhir = angka terakhir sudah lengkap.
+      const { cocok, mirip } = cariTeks(siapPerSaring.get(saringAktif), cari.value);
 
       // Sudah persis sama dengan nama ATAU kode yang ada? Jangan tawarkan "buat baru".
       const samaTepat =
@@ -111,7 +113,7 @@ export function buatPilih(o) {
                   </button>`;
       const daftarOpsi = cocok.map(opsi).join('');
       const daftarMirip = mirip.length
-        ? `<div class="mirip-judul">Mungkin maksud Anda? Cek merek &amp; ukurannya</div>` +
+        ? `<div class="mirip-judul">${esc(o.ketMirip || 'Mungkin maksud Anda?')}</div>` +
           mirip.map(opsi).join('')
         : '';
 
