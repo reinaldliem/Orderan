@@ -4,6 +4,7 @@
 
 import { ikon } from './ikon.js';
 import { esc, aturBeku } from './util.js';
+import { siapkan, cari as cariTeks } from './cocok.js';
 
 /**
  * @param {object} o
@@ -74,19 +75,19 @@ export function buatPilih(o) {
     const cari = tirai.querySelector('.cari');
     const daftar = tirai.querySelector('.daftar');
 
+    // Kata-kata tiap baris disiapkan sekali per saringan, bukan per ketukan.
+    const siapPerSaring = new Map();
+
     function isiDaftar() {
       const q = cari.value.trim().toLowerCase();
       const uji = o.saring?.find((s) => s.kunci === saringAktif)?.uji;
       const semua = uji ? semuaData.filter(uji) : semuaData;
-      // dicocokkan ke nama DAN kata bantu (mis. kode barang), jadi
-      // sales boleh cari pakai kode kalau lebih hafal kodenya
-      const cocok = q
-        ? semua
-            .filter((d) =>
-              (String(d.nama) + ' ' + (d.kata || '')).toLowerCase().includes(q)
-            )
-            .slice(0, 80)
-        : semua.slice(0, 80);
+      if (!siapPerSaring.has(saringAktif)) siapPerSaring.set(saringAktif, siapkan(semua));
+      // Dicocokkan per kata ke nama DAN kata bantu (mis. kode barang), urutan
+      // bebas, singkatan daftar dikenali — lihat cocok.js. Kalau tidak ada
+      // yang cocok, barang yang MIRIP ditawarkan sebelum tombol nama baru,
+      // supaya sales tidak membuat barang kembar dengan ejaan lain.
+      const { cocok, mirip } = cariTeks(siapPerSaring.get(saringAktif), q);
 
       // Sudah persis sama dengan nama ATAU kode yang ada? Jangan tawarkan "buat baru".
       const samaTepat =
@@ -100,24 +101,28 @@ export function buatPilih(o) {
       const tombolBaru =
         bolehBaru && q && !samaTepat
           ? `<button type="button" class="opsi baru" data-baru="1">
-               + Pakai "${esc(cari.value.trim())}" (belum ada di daftar)
+               + ${mirip.length ? 'Tetap pakai' : 'Pakai'} "${esc(cari.value.trim())}" (belum ada di daftar)
              </button>`
           : '';
 
-      const daftarOpsi = cocok
-        .map(
-          (d) => `<button type="button" class="opsi" data-id="${esc(d.id)}">
+      const opsi = (d) => `<button type="button" class="opsi" data-id="${esc(d.id)}">
                     <div class="nm">${esc(d.nama)}</div>
                     ${d.info ? `<div class="ket">${esc(d.info)}</div>` : ''}
-                  </button>`
-        )
-        .join('');
+                  </button>`;
+      const daftarOpsi = cocok.map(opsi).join('');
+      const daftarMirip = mirip.length
+        ? `<div class="mirip-judul">Mungkin maksud Anda? Cek merek &amp; ukurannya</div>` +
+          mirip.map(opsi).join('')
+        : '';
 
       // Kalau ada hasil cocok, tombol "buat baru" ditaruh di BAWAH supaya
-      // tidak gampang salah ketuk. Kalau tidak ada hasil, baru ditaruh di atas.
-      let html = cocok.length ? daftarOpsi + tombolBaru : tombolBaru + daftarOpsi;
+      // tidak gampang salah ketuk. Ada yang mirip: tawarannya dulu, tombol
+      // nama baru di bawahnya. Tidak ada apa-apa: baru tombol itu di atas.
+      let html = cocok.length ? daftarOpsi + tombolBaru
+        : mirip.length ? daftarMirip + tombolBaru
+          : tombolBaru;
 
-      if (!cocok.length && !tombolBaru) {
+      if (!cocok.length && !mirip.length && !tombolBaru) {
         html += `<div class="habis">${
           semua.length ? 'Tidak ada yang cocok.' : 'Daftar masih kosong. Minta admin mengisi data.'
         }</div>`;
