@@ -339,7 +339,7 @@ async function tabOrder(panel, ctx) {
         <td class="k-toko">${esc(p.toko_nama)}${
           // tanda catatan tambahan menempel di nama toko, sebelum kota (kota = blok baris sendiri)
           catatanBaru
-            ? `<span class="tanda-catatan baru" title="Catatan baru dari sales — belum dibaca">${ikon('catatan', 14)}</span>`
+            ? `<span class="tanda-catatan baru" title="Catatan baru dari sales — belum dibaca">${ikon('catatan', 14)}BARU</span>`
             : adaCatatan
               ? `<span class="tanda-catatan" title="Ada catatan tambahan dari sales">${ikon('catatan', 14)}</span>`
               : ''}${p.toko?.kota ? `<span class="kota-kecil">${esc(p.toko.kota)}</span>` : ''}${
