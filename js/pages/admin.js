@@ -336,12 +336,18 @@ async function tabOrder(panel, ctx) {
         <td class="k-nomor"${baru ? ' title="Order baru sejak terakhir disegarkan"' : ''}>${baru ? 'BARU' : nomor}</td>
         <td>${esc(tglSel(p.tanggal))}</td>
         <td>${esc(namaSales[p.sales_id] || '—')}</td>
-        <td class="k-toko">${esc(p.toko_nama)}${p.toko?.kota ? `<span class="kota-kecil">${esc(p.toko.kota)}</span>` : ''}${
+        <td class="k-toko">${esc(p.toko_nama)}${
+          // tanda catatan tambahan menempel di nama toko, sebelum kota (kota = blok baris sendiri)
           catatanBaru
             ? `<span class="tanda-catatan baru" title="Catatan baru dari sales — belum dibaca">${ikon('catatan', 14)}</span>`
             : adaCatatan
               ? `<span class="tanda-catatan" title="Ada catatan tambahan dari sales">${ikon('catatan', 14)}</span>`
-              : ''}</td>
+              : ''}${p.toko?.kota ? `<span class="kota-kecil">${esc(p.toko.kota)}</span>` : ''}${
+          // Catatan yang ditulis saat order dibuat: cukup sekali per order,
+          // di baris pertamanya. Terpotong satu baris; isi lengkap di title & rincian.
+          awalOrder && p.catatan
+            ? `<span class="catatan-order" title="Catatan order: ${esc(p.catatan)}">${ikon('catatan', 13)}<span>${esc(p.catatan)}</span></span>`
+            : ''}</td>
         <td>${esc(i.barang_nama)}</td>
         <td class="ang">${esc(angka(i.qty))} ${esc(i.satuan)}</td>
         <td class="ang">${esc(angka(i.harga))}${
