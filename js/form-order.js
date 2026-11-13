@@ -121,6 +121,13 @@ export function buatFormOrder(o) {
     });
   }
 
+  /** Identitas barang di satu baris: id master, atau nama untuk barang ketikan bebas. */
+  function kunciBarang(id, nama) {
+    return id !== null && id !== undefined
+      ? 'id:' + id
+      : 'nama:' + String(nama || '').trim().toLowerCase();
+  }
+
   /** Isi koli barang dari master (untuk draf & ubah order yang hanya menyimpan id). */
   function koliDari(barangId) {
     if (!barangId) return null;
@@ -170,8 +177,17 @@ export function buatFormOrder(o) {
       placeholder: 'Ketuk untuk memilih barang…',
       data: dataBarang,
       saatPilih: (v) => {
+        // Barangnya benar-benar BERGANTI, atau sales hanya memilih ulang barang
+        // yang sama? Dulu harga barang lama ikut tertinggal saat barang diganti
+        // (semen Rp 52.000 -> paku tetap Rp 52.000). Memilih ulang barang yang
+        // sama tetap mempertahankan harga nego yang sudah diketik.
+        const sebelumnya = baris.kunci;
+        baris.kunci = kunciBarang(v?.id, v?.nama);
+        const sama = sebelumnya === baris.kunci;
+        const ganti = sebelumnya !== undefined && !sama;
         if (v?.ekstra) {
           const e = v.ekstra;
+          const rek = Number(e.harga_rekomendasi) || 0;
           baris.satuan = e.satuan;
           baris.beratKg = e.berat_kg || null;
           baris.isiKoli = e.isi_koli || null;
@@ -180,13 +196,14 @@ export function buatFormOrder(o) {
             inHarga.placeholder = 'harga 1 kg';
             elSatuan.textContent = `satuan: ${e.satuan} · 1 ${e.satuan} = ${angka(baris.beratKg)} kg`;
             // harga_rekomendasi barang per-kilo = harga per KG; isi sebagai awalan
-            inHarga.value = e.harga_rekomendasi ? angka(e.harga_rekomendasi) : '';
+            if (!sama) inHarga.value = rek ? angka(rek) : '';
           } else {
             elLabelHarga.textContent = 'Harga satuan';
             inHarga.placeholder = '0';
             elSatuan.textContent = 'satuan: ' + e.satuan;
-            elRekom.textContent = 'Rekomendasi ' + rupiah(e.harga_rekomendasi);
-            if (!keAngka(inHarga.value)) inHarga.value = angka(e.harga_rekomendasi);
+            elRekom.textContent = rek ? 'Rekomendasi ' + rupiah(rek) : 'Belum ada harga di daftar — isi sendiri';
+            // Pilihan pertama: harga yang sudah diketik sebelum memilih barang dibiarkan.
+            if (ganti || !keAngka(inHarga.value)) inHarga.value = rek ? angka(rek) : '';
           }
         } else {
           baris.satuan = 'pcs';
@@ -196,6 +213,7 @@ export function buatFormOrder(o) {
           inHarga.placeholder = '0';
           elSatuan.textContent = 'satuan: pcs (barang baru)';
           elRekom.textContent = 'Barang baru — isi harga sendiri';
+          if (ganti) inHarga.value = '';
         }
         ubah();
         if (!keAngka(inQty.value)) inQty.focus();
@@ -257,6 +275,7 @@ export function buatFormOrder(o) {
 
     baris.tulis = (d) => {
       if (d.barang_nama) {
+        baris.kunci = kunciBarang(d.barang_id, d.barang_nama);
         baris.satuan = d.satuan || 'pcs';
         baris.beratKg = Number(d.berat_kg) || null;
         baris.isiKoli = koliDari(d.barang_id);
