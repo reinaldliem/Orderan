@@ -183,6 +183,12 @@ function gambarKerangka(kunci) {
 
   // Lebar 1280px hanya untuk tab Order di Admin; admin.js memasangnya lagi.
   document.body.classList.remove('tanpa-bar', 'lebar');
+  // Keyboard PIN di layar login bisa meninggalkan kb-open (bar bawah ikut
+  // tersembunyi) kalau peramban tidak mengirim resize saat kotak PIN hilang.
+  // Tidak ada isian yang sedang aktif = keyboard pasti tertutup.
+  if (!document.activeElement?.matches?.('input, textarea, select')) {
+    document.body.classList.remove('kb-open');
+  }
   // Mode desktop (menu samping, selebar jendela) hanya untuk admin; ukurannya diatur CSS.
   document.body.classList.add('meja');
   document.getElementById('btn-keluar').addEventListener('click', keluarSekarang);
@@ -218,10 +224,30 @@ function gambarTanpaHalaman() {
 }
 
 let sedangGambar = false;
+// Menu ditekan saat halaman lain masih dimuat (mis. Riwayat tepat setelah
+// login, selagi daftar barang diunduh). Dulu tekanan itu DIBUANG: alamat sudah
+// #/riwayat tapi layar tetap Order, dan menekan Riwayat lagi tidak memicu apa
+// pun karena alamatnya tidak berubah. Sekarang dicatat, lalu dijalankan begitu
+// halaman yang sedang dimuat selesai.
+let tertunda = false;
+
+/** Nyalakan menu bawah sesuai alamat — umpan balik langsung saat halaman tertunda. */
+function tandaiMenuBawah() {
+  const kunci = rutaSekarang();
+  document.querySelectorAll('.bar a').forEach((a) => {
+    a.classList.toggle('aktif', a.getAttribute('href') === '#/' + kunci);
+  });
+}
 
 async function gambarHalaman() {
-  if (sedangGambar) return;
+  if (sedangGambar) {
+    tertunda = true;
+    tandaiMenuBawah();
+    return;
+  }
   sedangGambar = true;
+  tertunda = false;
+  const alamatAwal = location.hash;
   try {
     const kunci = rutaSekarang();
     const h = HALAMAN[kunci];
@@ -257,6 +283,12 @@ async function gambarHalaman() {
     }
   } finally {
     sedangGambar = false;
+    // Alamat berubah selagi dimuat -> gambar halaman yang sekarang diminta.
+    // Alamat sama (mis. ditekan Riwayat lalu Order lagi) -> tidak perlu apa-apa.
+    if (tertunda) {
+      tertunda = false;
+      if (location.hash !== alamatAwal) gambarHalaman();
+    }
   }
 }
 
