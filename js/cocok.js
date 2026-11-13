@@ -32,6 +32,78 @@ export function pecahKata(teks) {
     .filter((k) => k && k !== '/');
 }
 
+/**
+ * Kata yang SAMA dengan ejaan berbeda — disusun dari analisa usulan sales
+ * (14 Nov 2026) dan dari daftar resmi sendiri (GRAJI & GERGAJI sama-sama ada).
+ * Kata pertama = bentuk baku. Hanya ejaan kata yang sama: merek yang BERBEDA
+ * tidak pernah disamakan (camar ≠ camel, viper ≠ vipro), dan nama barang di
+ * database tidak diubah — ini hanya membantu pencarian.
+ */
+const SINONIM = [
+  // salah ketik / ejaan lain yang dipakai sales
+  ['gergaji', 'graji'],
+  ['selang', 'slang', 'selan'],
+  ['shower', 'sower'],
+  ['loket', 'loker'],
+  ['toren', 'toten'],
+  ['talang', 'talng'],
+  ['standar', 'standart', 'standard', 'setandat'],
+  ['jelly', 'jely'],
+  ['pipa', 'piva'],
+  // ejaan nama barang
+  ['knee', 'kenie', 'keni', 'elbow'],
+  ['sock', 'sok'],
+  ['sekrup', 'skrup', 'sekerup'],
+  ['gipsum', 'gypsum'],
+  ['dobel', 'double', 'doble'],
+  ['rubber', 'ruber'],
+  ['sealant', 'sealent'],
+  ['classic', 'clasic', 'klasik'],
+  ['flexible', 'fleksibel', 'flexibel', 'fleksible'],
+  // merek yang sama, ejaan berbeda
+  ['watertec', 'wattertec', 'watertek'],
+  ['solvex', 'solvek'],
+  ['handjin', 'hanjin'],
+  ['fumetax', 'fumextax'],
+  ['maxtech', 'maxech', 'maxtec', 'maxtek'],
+  ['shliper', 'sliper', 'shilper'],
+  ['matrix', 'mtrix'],
+  ['rhino', 'rino'],
+  ['sapphire', 'saphire'],
+  // warna & bahan: daftar memakai bahasa Inggris, sales mengetik Indonesia
+  ['hitam', 'black'],
+  ['putih', 'white'],
+  ['emas', 'gold'],
+  ['bening', 'clear'],
+  ['abu', 'grey', 'gray'],
+  ['kuningan', 'brass'],
+  ['chrome', 'crom', 'krom', 'crome', 'chrom'],
+  ['stainless', 'stenlis', 'stainles', 'stenles', 'stenless'],
+  // ukuran
+  ['feet', 'fet', 'ft', 'feel'],
+  // ejaan baku vs sehari-hari
+  ['kran', 'keran'],
+  ['stang', 'setang'],
+  ['magnet', 'mahnet'],
+  ['amplas', 'ampelas'],
+  ['closet', 'kloset'],
+  ['wastafel', 'westafel'],
+  ['baut', 'baud'],
+  ['fisher', 'fischer', 'fiser'],
+  ['nepel', 'nipel', 'nipple'],
+];
+// Singkatan beberapa kata: daftar memakai keduanya (AFUR BCP STENLIS dan
+// BAK CUCI PIRING SAVIC), sales juga (Bcp subron). Satu baris yang punya
+// salah satunya mendapat yang lain, jadi ketik "bcp" atau "bak cuci piring"
+// menemukan semuanya.
+const FRASA = [['bcp', ['bak', 'cuci', 'piring']]];
+
+const KANON = new Map();
+for (const [baku, ...lain] of SINONIM) for (const k of [baku, ...lain]) KANON.set(k, baku);
+
+/** Bentuk baku sebuah kata (graji -> gergaji); kata lain dikembalikan apa adanya. */
+export const kanon = (k) => KANON.get(k) || k;
+
 const adaAngka = (k) => /[0-9]/.test(k);
 
 /** Jarak edit <= 1 (ganti / sisip / hapus satu huruf). */
@@ -101,11 +173,21 @@ function nilaiKata(q, kataNama, terakhir) {
   return terbaik;
 }
 
-/** Siapkan sekali per pembukaan daftar: teks utuh & kata-kata tiap baris. */
+/**
+ * Siapkan sekali per pembukaan daftar: teks utuh & kata-kata tiap baris.
+ * Bentuk baku ikut DITAMBAHKAN (bukan menggantikan): GRAJI BESI punya kata
+ * "graji" dan "gergaji", jadi ketik "gra" tetap menemukannya lewat awal kata.
+ */
 export function siapkan(data) {
   return data.map((d) => {
     const teks = String(d.nama) + ' ' + (d.kata || '');
-    return { d, utuh: teks.toLowerCase(), kata: pecahKata(teks) };
+    const kata = pecahKata(teks);
+    const tambah = kata.map(kanon).filter((k, i) => k !== kata[i]);
+    for (const [singkat, panjang] of FRASA) {
+      if (kata.includes(singkat)) tambah.push(...panjang);
+      else if (panjang.every((k) => kata.includes(k))) tambah.push(singkat);
+    }
+    return { d, utuh: teks.toLowerCase(), kata: tambah.length ? [...new Set([...kata, ...tambah])] : kata };
   });
 }
 
@@ -119,7 +201,7 @@ export function siapkan(data) {
 export function cari(siap, q, { batas = 80, batasMirip = 3 } = {}) {
   const teks = String(q ?? '').trim().toLowerCase();
   if (!teks) return { cocok: siap.slice(0, batas).map((s) => s.d), mirip: [] };
-  const kataQ = pecahKata(teks);
+  const kataQ = pecahKata(teks).map(kanon);
   // Spasi / tanda inci di akhir = angka terakhir sudah selesai diketik.
   const selesai = /[\s"'”]$/.test(String(q));
   const kenaPerKata = kataQ.map(() => 0);
@@ -134,7 +216,9 @@ export function cari(siap, q, { batas = 80, batasMirip = 3 } = {}) {
     }
     if (!kataQ.length) return;
     const nilai = kataQ.map((k, i) => nilaiKata(k, s.kata, i === kataQ.length - 1 && !selesai));
-    nilai.forEach((v, i) => { if (v >= 0.6) kenaPerKata[i] += 1; });
+    // Kekhasan kata dihitung dari kecocokan SUNGGUHAN (>= 0.9) saja: "stang"
+    // ada di 2 barang, meski salah-ketiknya mirip "tang" di 14 barang.
+    nilai.forEach((v, i) => { if (v >= 0.9) kenaPerKata[i] += 1; });
     if (nilai.every((v) => v >= 0.9)) {
       cocok.push({ s, urut, skor: 1 + (s.kata[0]?.startsWith(kataQ[0]) ? 1 : 0) });
       return;
