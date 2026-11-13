@@ -103,7 +103,7 @@ export function buatPilih(o) {
       const tombolBaru =
         bolehBaru && q && !samaTepat
           ? `<button type="button" class="opsi baru" data-baru="1">
-               + ${mirip.length ? 'Tetap pakai' : 'Pakai'} "${esc(cari.value.trim())}" (belum ada di daftar)
+               + ${mirip.length ? 'Tetap pakai' : 'Pakai'} "${esc(cari.value.trim().toUpperCase())}" (belum ada di daftar)
              </button>`
           : '';
 
@@ -165,7 +165,8 @@ export function buatPilih(o) {
       if (!opsi) return;
 
       if (opsi.dataset.baru) {
-        set({ id: null, nama: cari.value.trim() });
+        // Nama baru selalu huruf besar — database juga menyimpannya begitu.
+        set({ id: null, nama: cari.value.trim().toUpperCase() });
       } else {
         const d = semuaData.find((x) => String(x.id) === opsi.dataset.id);
         if (d) set({ id: d.id, nama: d.nama, info: d.info, ekstra: d });

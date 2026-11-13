@@ -4,6 +4,7 @@ import * as db from '../db.js';
 import { ikon } from '../ikon.js';
 import { buatFormOrder } from '../form-order.js';
 import { buatFormBarang } from '../form-barang.js';
+import { siapkan, cari as cariTeks } from '../cocok.js';
 import {
   esc, rupiah, angka, keAngka, hariIni, tanggalPendek,
   pesan, tanya, unduh, keCSV, keCSVSheet, pecahTempelan, rincianItem, lembar,
@@ -1666,9 +1667,15 @@ async function tabMaster(panel, ctx, o) {
   }
 
   function gambarList() {
-    const q = cari.value.trim().toLowerCase();
+    const q = cari.value.trim();
     const dasar = tersaring();
-    const cocok = (q ? dasar.filter((r) => r.nama.toLowerCase().includes(q)) : dasar).slice(0, 200);
+    // Pencarian yang sama dengan form order (cocok.js): huruf besar/kecil tidak
+    // berpengaruh, urutan kata bebas, spasi dobel diabaikan, kamus sinonim,
+    // dan kode toko/barang ikut dicari.
+    const cocok = q
+      ? cariTeks(siapkan(dasar.map((r) => ({ nama: r.nama, kata: r.kode || '', r }))), q, { batas: 200 })
+          .cocok.map((x) => x.r)
+      : dasar.slice(0, 200);
     const jmlUsulan = data.filter((r) => r.sumber === 'sales').length;
 
     const elHitung = panel.querySelector('#hitung');

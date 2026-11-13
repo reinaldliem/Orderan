@@ -136,7 +136,7 @@ export function buatFormOrder(o) {
   }
 
   function tambahItem(awal) {
-    const baris = { satuan: 'pcs', beratKg: null, isiKoli: null };
+    const baris = { satuan: 'PCS', beratKg: null, isiKoli: null };
 
     const kotak = document.createElement('div');
     kotak.className = 'item';
@@ -206,12 +206,12 @@ export function buatFormOrder(o) {
             if (ganti || !keAngka(inHarga.value)) inHarga.value = rek ? angka(rek) : '';
           }
         } else {
-          baris.satuan = 'pcs';
+          baris.satuan = 'PCS';
           baris.beratKg = null;
           baris.isiKoli = null;
           elLabelHarga.textContent = 'Harga satuan';
           inHarga.placeholder = '0';
-          elSatuan.textContent = 'satuan: pcs (barang baru)';
+          elSatuan.textContent = 'satuan: PCS (barang baru)';
           elRekom.textContent = 'Barang baru — isi harga sendiri';
           if (ganti) inHarga.value = '';
         }
@@ -249,7 +249,7 @@ export function buatFormOrder(o) {
       const d = {
         barang_id: v?.id ?? null,
         barang_nama: v?.nama || '',
-        satuan: baris.satuan || 'pcs',
+        satuan: baris.satuan || 'PCS',
         qty: keAngka(inQty.value),
         harga: diisi,
       };
@@ -276,7 +276,7 @@ export function buatFormOrder(o) {
     baris.tulis = (d) => {
       if (d.barang_nama) {
         baris.kunci = kunciBarang(d.barang_id, d.barang_nama);
-        baris.satuan = d.satuan || 'pcs';
+        baris.satuan = d.satuan || 'PCS';
         baris.beratKg = Number(d.berat_kg) || null;
         baris.isiKoli = koliDari(d.barang_id);
         let info = '';
