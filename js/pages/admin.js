@@ -113,16 +113,26 @@ async function tabOrder(panel, ctx) {
     <div class="ringkas empat" id="ringkas"></div>
     <div id="hasil"></div>`;
 
-  const salesList = await db.pilih('profil', { select: 'id,nama,username,peran', order: 'nama.asc' });
   const sel = panel.querySelector('#f-sales');
-  sel.insertAdjacentHTML(
-    'beforeend',
-    salesList
+  let namaSales = {};
+
+  /**
+   * Isi saringan Sales. Dipanggil lagi setiap Segarkan: akun sales yang
+   * dibuat sementara halaman ini terbuka (mis. dari HP) langsung muncul,
+   * tanpa memuat ulang halaman. Pilihan yang sedang aktif dipertahankan.
+   */
+  async function isiSales() {
+    const salesList = await db.pilih('profil', { select: 'id,nama,username,peran', order: 'nama.asc' });
+    const dipilih = sel.value;
+    sel.innerHTML = '<option value="">Semua sales</option>' + salesList
       .filter((p) => p.peran === 'sales')
       .map((p) => `<option value="${esc(p.id)}">${esc(p.nama)}</option>`)
-      .join('')
-  );
-  const namaSales = Object.fromEntries(salesList.map((p) => [p.id, p.nama]));
+      .join('');
+    sel.value = dipilih;
+    if (sel.value !== dipilih) sel.value = '';
+    namaSales = Object.fromEntries(salesList.map((p) => [p.id, p.nama]));
+  }
+  await isiSales();
 
   const inD1 = panel.querySelector('#d1');
   const inD2 = panel.querySelector('#d2');
@@ -178,6 +188,8 @@ async function tabOrder(panel, ctx) {
     btnSegarkan.disabled = true;
     btnSegarkan.innerHTML = `${ikon('segarkan', 19)}Memuat…`;
     try {
+      // Tarikan pertama: daftar sales baru saja diisi di atas.
+      if (idLama !== null) await isiSales().catch(() => {});
       pesanan = await tarik();
       const sekarang = new Set(pesanan.map((p) => p.id));
       const bandingkan = idLama !== null && kunci === kunciLama;
@@ -808,10 +820,16 @@ function mundur(iso, hari) {
  * ia ikut di form tambah: toko baru langsung sampai ke salesnya tanpa
  * langkah kedua yang gampang terlupa.
  */
-function centangSales(awalan, daftar, terpasang) {
+function centangSales(awalan, daftar, terpasang, tanpaKode = []) {
+  // Sales tanpa kode tidak bisa dicentang (pembagian toko memakai kode) —
+  // sebut namanya, jangan hilang diam-diam.
+  const peringatan = tanpaKode.length
+    ? `<div class="bantuan">Belum bisa dipilih karena belum punya kode sales:
+       <b>${tanpaKode.map(esc).join(', ')}</b>. Isi kodenya di Admin → Akun → Edit akun.</div>`
+    : '';
   if (!daftar.length) {
     return `<div class="bantuan">Belum ada akun sales, jadi toko ini belum bisa
-            ditugaskan ke siapa pun.</div>`;
+            ditugaskan ke siapa pun.</div>${peringatan}`;
   }
   const punya = new Set((terpasang || []).map((k) => String(k).toUpperCase()));
   const baris = daftar.map((sp) => {
@@ -830,6 +848,7 @@ function centangSales(awalan, daftar, terpasang) {
       ${baris}
       <div class="bantuan">Toko ini langsung muncul di "toko saya" milik sales
       yang dicentang.</div>
+      ${peringatan}
     </div>`;
 }
 
@@ -837,10 +856,13 @@ async function tabToko(panel, ctx) {
   // Daftar sales dimuat sekali di sini, bukan tiap kali form dibuka.
   // Dipakai untuk centang "siapa sales toko ini".
   let sales = [];
+  let tanpaKode = [];
   try {
-    sales = (await db.pilih('profil', {
+    const semua = (await db.pilih('profil', {
       select: 'nama,kode_sales,peran,aktif', order: 'nama.asc', limit: 500,
-    })).filter((x) => x.peran === 'sales' && x.kode_sales);
+    })).filter((x) => x.peran === 'sales');
+    sales = semua.filter((x) => x.kode_sales);
+    tanpaKode = semua.filter((x) => !x.kode_sales && x.aktif).map((x) => x.nama);
   } catch { /* biarkan kosong — formnya tetap bisa dipakai tanpa sales */ }
 
   await tabMaster(panel, ctx, {
@@ -891,7 +913,7 @@ async function tabToko(panel, ctx) {
       <div class="baris"><label class="label">Alamat</label><input type="text" id="f-alamat"></div>
       <div class="baris"><label class="label">Telepon</label>
         <input type="tel" id="f-telepon" inputmode="tel"></div>
-      ${centangSales('f', sales, [])}`,
+      ${centangSales('f', sales, [], tanpaKode)}`,
     bacaForm: (p) => ({
       kode: p.querySelector('#f-kode').value.trim() || null,
       nama: p.querySelector('#f-nama').value.trim(),
@@ -910,7 +932,7 @@ async function tabToko(panel, ctx) {
         <input type="text" id="e-alamat" value="${esc(r.alamat || '')}"></div>
       <div class="baris"><label class="label">Telepon</label>
         <input type="tel" id="e-telepon" value="${esc(r.telepon || '')}"></div>
-      ${centangSales('e', sales, (r.toko_sales || []).map((x) => x.kode_sales))}`,
+      ${centangSales('e', sales, (r.toko_sales || []).map((x) => x.kode_sales), tanpaKode)}`,
     bacaUbah: (w) => ({
       kode: w.querySelector('#e-kode').value.trim() || null,
       nama: w.querySelector('#e-nama').value.trim(),
@@ -1988,7 +2010,7 @@ async function tabMaster(panel, ctx, o) {
 /* ============================================================
    TAB 4 — AKUN
    ============================================================ */
-async function tabAkun(panel) {
+async function tabAkun(panel, ctx) {
   panel.innerHTML = `
     <div class="tata-akun">
     <div class="kartu akun-tambah">
@@ -2003,7 +2025,9 @@ async function tabAkun(panel) {
         <input type="text" id="a-nama" placeholder="Budi Santoso"></div>
       <div class="baris"><label class="label">Peran</label>
         <select id="a-peran"><option value="sales">Sales</option><option value="admin">Admin</option>
-          <option value="pemantau">Pemantau (skrip, hanya baca)</option></select></div>
+          <option value="pemantau">Pemantau (skrip, hanya baca)</option></select>
+        <div class="bantuan">Sales otomatis mendapat kode sales = username huruf besar
+          (mis. osc → OSC). Kalau kodenya di program nota berbeda, ubah lewat Edit akun.</div></div>
       <button type="button" class="btn" id="a-simpan">Buat akun</button>
     </div>
     <div class="akun-daftar">
@@ -2014,17 +2038,15 @@ async function tabAkun(panel) {
 
   const wadah = panel.querySelector('#daftar-akun');
 
+  let akun = new Map();   // username -> baris profil, untuk lembar Edit akun
+
   async function muat() {
     const baris = await db.pilih('profil', { select: '*', order: 'peran.asc,nama.asc' });
-    // Tombol aksi memakai atribut data-* yang sama di kartu (HP) maupun tabel
-    // (komputer), jadi satu penangan klik di bawah melayani keduanya.
+    akun = new Map(baris.map((p) => [p.username, p]));
+    // Satu tombol per akun, sama di kartu (HP) maupun tabel (komputer).
+    // Nama, kode sales, PIN, status aktif, dan hapus ada di lembar Edit akun.
     const aksi = (p) => `
-      <button type="button" class="btn abu kecil" data-nama="${esc(p.username)}"
-              data-nama-lama="${esc(p.nama)}">Ubah nama</button>
-      <button type="button" class="btn abu kecil" data-pin="${esc(p.username)}">Ganti PIN</button>
-      <button type="button" class="btn ${p.aktif ? 'abu' : 'hijau'} kecil"${p.aktif ? ' style="color:var(--merah)"' : ''}
-              data-aktif="${esc(p.username)}" data-nilai="${p.aktif ? '0' : '1'}">
-        ${p.aktif ? 'Nonaktifkan' : 'Aktifkan'}</button>`;
+      <button type="button" class="btn abu kecil" data-edit="${esc(p.username)}">Edit akun</button>`;
     const tabel = `
       <div class="daftar-tabel">
         <div class="lembar-kerja" role="region" aria-label="Daftar akun" tabindex="0">
@@ -2060,60 +2082,143 @@ async function tabAkun(panel) {
             </div>
           </div>
         </div>
-        <div style="display:flex;gap:8px;padding:0 14px 14px;flex-wrap:wrap">
-          <button type="button" class="btn abu kecil" style="flex:1 1 30%"
-                  data-nama="${esc(p.username)}" data-nama-lama="${esc(p.nama)}">Ubah nama</button>
-          <button type="button" class="btn abu kecil" style="flex:1 1 30%" data-pin="${esc(p.username)}">Ganti PIN</button>
-          <button type="button" class="btn ${p.aktif ? 'abu' : 'hijau'} kecil" style="flex:1 1 30%${
-                    p.aktif ? ';color:var(--merah)' : ''}"
-                  data-aktif="${esc(p.username)}" data-nilai="${p.aktif ? '0' : '1'}">
-            ${p.aktif ? 'Nonaktifkan' : 'Aktifkan'}</button>
+        <div style="padding:0 14px 14px">
+          <button type="button" class="btn abu kecil" style="width:100%"
+                  data-edit="${esc(p.username)}">Edit akun</button>
         </div>
       </div>`
       )
       .join('') + `</div>` + tabel;
   }
 
-  wadah.addEventListener('click', async (e) => {
-    const namaBtn = e.target.closest('[data-nama]');
-    if (namaBtn) {
-      const baru = prompt('Nama lengkap untuk ' + namaBtn.dataset.nama + ':',
-                          namaBtn.dataset.namaLama || '');
-      if (baru === null || !baru.trim()) return;
-      try {
-        await db.rpc('ubah_profil', { p_username: namaBtn.dataset.nama, p_nama: baru.trim() });
-        pesan('Nama diperbarui.', 'ok');
-        muat();
-      } catch (err) { pesan(err.message, 'salah'); }
-      return;
-    }
-
-    const pin = e.target.closest('[data-pin]');
-    if (pin) {
-      const baru = prompt(`PIN baru untuk ${pin.dataset.pin} (6 angka):`);
-      if (baru === null) return;
-      if (!/^\d{6}$/.test(baru.trim())) { pesan('PIN harus 6 angka.', 'salah'); return; }
-      try {
-        await db.rpc('ganti_pin', { p_username: pin.dataset.pin, p_pin_baru: baru.trim() });
-        pesan('PIN diganti. Beritahu yang bersangkutan.', 'ok');
-      } catch (err) { pesan(err.message, 'salah'); }
-      return;
-    }
-
-    const akt = e.target.closest('[data-aktif]');
-    if (!akt) return;
-    const hidup = akt.dataset.nilai === '1';
-    if (!(await tanya(
-      hidup ? 'Aktifkan akun?' : 'Nonaktifkan akun?',
-      hidup ? `${akt.dataset.aktif} bisa masuk lagi.` : `${akt.dataset.aktif} tidak bisa masuk sampai diaktifkan lagi.`,
-      'Ya'
-    ))) return;
-    try {
-      await db.rpc('set_akun_aktif', { p_username: akt.dataset.aktif, p_aktif: hidup });
-      pesan('Tersimpan.', 'ok');
-      muat();
-    } catch (err) { pesan(err.message, 'salah'); }
+  wadah.addEventListener('click', (e) => {
+    const b = e.target.closest('[data-edit]');
+    const p = b && akun.get(b.dataset.edit);
+    if (p) bukaEditAkun(p);
   });
+
+  /**
+   * Edit akun: nama, kode sales (khusus sales), PIN baru, status aktif, hapus.
+   * Username dan peran tidak bisa diubah. Akun yang sedang dipakai tidak bisa
+   * menonaktifkan atau menghapus dirinya sendiri.
+   */
+  function bukaEditAkun(p) {
+    const diriSendiri = p.id === ctx?.status?.profil?.id;
+    const sales = p.peran === 'sales';
+    const tirai = lembar(`Edit akun ${p.username}`, `
+      <div class="kartu">
+        <div class="baris" style="margin-top:0"><label class="label" for="ea-nama">Nama lengkap</label>
+          <input type="text" id="ea-nama" value="${esc(p.nama)}" autocomplete="off"></div>
+        ${sales ? `
+        <div class="baris"><label class="label" for="ea-kode">Kode sales</label>
+          <input type="text" id="ea-kode" value="${esc(p.kode_sales || '')}" maxlength="20"
+                 autocapitalize="characters" autocomplete="off" spellcheck="false">
+          <div class="bantuan">Samakan dengan kode sales di program nota. Kode ini yang
+          menentukan "toko saya"; kalau diganti, toko yang sudah dibagikan ikut pindah.</div></div>` : ''}
+        <div class="baris"><label class="label" for="ea-pin">PIN baru</label>
+          <input type="text" id="ea-pin" inputmode="numeric" maxlength="6" autocomplete="off"
+                 placeholder="kosongkan kalau tidak diganti"></div>
+        ${diriSendiri ? '' : `
+        <label style="display:flex;gap:11px;align-items:center;min-height:44px;margin-top:6px;cursor:pointer">
+          <input type="checkbox" id="ea-aktif"${p.aktif ? ' checked' : ''}
+                 style="width:22px;height:22px;min-height:22px;padding:0;flex:0 0 auto">
+          <span>Akun aktif — bisa masuk ke aplikasi</span></label>`}
+        <div class="bantuan">Username <b>${esc(p.username)}</b> · peran ${esc(p.peran)}
+          (keduanya tidak bisa diubah).</div>
+      </div>
+      <button type="button" class="btn" id="ea-simpan" style="width:100%">Simpan perubahan</button>
+      ${diriSendiri ? `
+      <div class="bantuan">Ini akun yang sedang Anda pakai, jadi tidak bisa dinonaktifkan atau dihapus dari sini.</div>` : `
+      <button type="button" class="btn abu kecil" id="ea-hapus"
+              style="width:100%;margin-top:10px;color:var(--sinyal);border-color:var(--sinyal)">Hapus akun</button>
+      <div class="bantuan">Hanya akun yang belum pernah membuat order yang bisa dihapus (mis. akun
+        salah buat). Sales yang berhenti: hilangkan centang "Akun aktif" supaya tidak bisa masuk,
+        riwayat penjualannya tetap utuh.</div>`}`);
+
+    const q = (s) => tirai.querySelector(s);
+    q('#ea-pin').addEventListener('input', (e) => {
+      e.target.value = e.target.value.replace(/\D/g, '').slice(0, 6);
+    });
+
+    q('#ea-simpan').addEventListener('click', async (e) => {
+      const btn = e.currentTarget;
+      const nama = q('#ea-nama').value.trim();
+      const kode = sales ? q('#ea-kode').value.trim().toUpperCase() : null;
+      const pin = q('#ea-pin').value.trim();
+      const aktif = diriSendiri ? p.aktif : q('#ea-aktif').checked;
+
+      if (!nama) { pesan('Nama lengkap belum diisi.', 'salah'); return; }
+      if (sales && !/^[A-Z0-9._-]{1,20}$/.test(kode)) {
+        pesan('Kode sales wajib diisi: 1-20 huruf/angka, tanpa spasi.', 'salah');
+        return;
+      }
+      if (pin && !/^\d{6}$/.test(pin)) { pesan('PIN baru harus 6 angka.', 'salah'); return; }
+
+      const gantiNama = nama !== p.nama;
+      const gantiKode = sales && kode !== (p.kode_sales || '');
+      const gantiAktif = aktif !== p.aktif;
+      if (!gantiNama && !gantiKode && !pin && !gantiAktif) {
+        pesan('Tidak ada yang diubah.', 'info');
+        return;
+      }
+      if (gantiKode && p.kode_sales && !(await tanya('Ganti kode sales?',
+        `${p.kode_sales} → ${kode}. Toko yang sudah dibagikan ke ${p.kode_sales} ikut pindah ke ${kode}.`,
+        'Ya, ganti'))) return;
+      if (gantiAktif && !aktif && !(await tanya('Nonaktifkan akun?',
+        `${p.username} tidak bisa masuk sampai diaktifkan lagi. Riwayat ordernya tetap utuh.`,
+        'Ya, nonaktifkan'))) return;
+
+      btn.disabled = true;
+      btn.textContent = 'Menyimpan…';
+      const selesai = [];
+      try {
+        if (gantiNama || gantiKode) {
+          await db.rpc('ubah_profil', {
+            p_username: p.username, p_nama: nama, ...(gantiKode ? { p_kode_sales: kode } : {}),
+          });
+          if (gantiNama) selesai.push('nama');
+          if (gantiKode) selesai.push('kode sales');
+        }
+        if (pin) {
+          await db.rpc('ganti_pin', { p_username: p.username, p_pin_baru: pin });
+          selesai.push('PIN (beri tahu yang bersangkutan)');
+        }
+        if (gantiAktif) {
+          await db.rpc('set_akun_aktif', { p_username: p.username, p_aktif: aktif });
+          selesai.push(aktif ? 'diaktifkan' : 'dinonaktifkan');
+        }
+        pesan(`Tersimpan: ${selesai.join(', ')}.`, 'ok');
+        tirai.remove();
+      } catch (err) {
+        // Sebagian bisa sudah tersimpan sebelum yang gagal — sebutkan keduanya.
+        pesan((selesai.length ? `Tersimpan: ${selesai.join(', ')}. ` : '') + `Gagal: ${err.message}`, 'salah');
+        btn.disabled = false;
+        btn.textContent = 'Simpan perubahan';
+      }
+      muat();
+    });
+
+    q('#ea-hapus')?.addEventListener('click', async (e) => {
+      // Diambil SEBELUM await: setelah dialog, e.currentTarget sudah null.
+      const btn = e.currentTarget;
+      if (!(await tanya(`Hapus akun ${p.username}?`,
+        `${p.nama} akan hilang permanen dan tidak bisa masuk lagi. Tindakan ini tidak bisa dibatalkan. ` +
+        'Akun yang sudah punya order akan ditolak — nonaktifkan saja.',
+        'Ya, hapus'))) return;
+      btn.disabled = true;
+      btn.textContent = 'Menghapus…';
+      try {
+        await db.rpc('hapus_akun', { p_username: p.username });
+        pesan(`Akun ${p.username} dihapus.`, 'ok');
+        tirai.remove();
+        muat();
+      } catch (err) {
+        pesan(err.message, 'salah');
+        btn.disabled = false;
+        btn.textContent = 'Hapus akun';
+      }
+    });
+  }
 
   panel.querySelector('#a-pin').addEventListener('input', (e) => {
     e.target.value = e.target.value.replace(/\D/g, '').slice(0, 6);

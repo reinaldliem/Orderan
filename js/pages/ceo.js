@@ -278,6 +278,15 @@ export async function gambar(isi, ctx) {
   const wadah = isi.querySelector('#dasbor');
   const selSales = isi.querySelector('#pilih-sales');
 
+  // Semua akun sales untuk pilihan "Lihat angka milik". Gagal dimuat pun
+  // tidak apa-apa: daftar tetap terisi dari angka penjualan periode ini.
+  let akunSales = [];
+  try {
+    akunSales = (await db.pilih('profil', {
+      select: 'id,nama,peran,aktif', order: 'nama.asc,id.asc',
+    })).filter((p) => p.peran === 'sales');
+  } catch { /* abaikan */ }
+
   selSales.addEventListener('change', () => {
     salesAktif = selSales.value || null;
     muat().catch((e) => pesan(e.message, 'salah'));
@@ -310,11 +319,18 @@ export async function gambar(isi, ctx) {
       db.rpc('dasbor_barang_tren', { p_dari: dari, p_sampai: sampai, p_satuan: r.satuan, p_sales_id: sid, p_urut: 'tren', p_limit: 5 }),
     ]);
 
-    // Daftar sales diisi sekali, dari hasil yang TIDAK tersaring.
-    if (selSales.options.length <= 1 && (sales || []).length) {
-      selSales.insertAdjacentHTML('beforeend', sales.map((x) =>
-        `<option value="${esc(x.sales_id)}">${esc(x.nama || x.kode_sales || '—')}</option>`).join(''));
+    // Daftar sales diisi sekali: SEMUA akun sales (yang belum punya order di
+    // periode ini pun bisa dipilih — sales baru tidak boleh "hilang"), lalu
+    // siapa pun yang tercatat menjual di periode ini tapi bukan akun sales.
+    if (selSales.options.length <= 1) {
+      const ada = new Set(akunSales.map((p) => p.id));
+      const opsi = akunSales.map((p) => [p.id, p.nama + (p.aktif ? '' : ' (nonaktif)')])
+        .concat((sales || []).filter((x) => !ada.has(x.sales_id))
+          .map((x) => [x.sales_id, x.nama || x.kode_sales || '—']));
+      selSales.insertAdjacentHTML('beforeend', opsi.map(([id, nama]) =>
+        `<option value="${esc(id)}">${esc(nama)}</option>`).join(''));
       selSales.value = salesAktif || '';
+      if (selSales.value !== (salesAktif || '')) selSales.value = '';
     }
 
     const s = (Array.isArray(ringkasRow) ? ringkasRow[0] : ringkasRow) || {};
