@@ -1118,14 +1118,27 @@ body.lebar #app, body.lebar .bar { max-width: 1280px; }
 
   /* Buat order: toko, catatan & total di kiri; barang di kanan */
   body.meja .buat-order .form-order {
-    display: grid; grid-template-columns: minmax(300px, 380px) minmax(0, 1fr);
+    /* Kolom kiri 36% (280-380px), SISANYA untuk barang. Dulu minmax(300px,
+       380px): kolom kiri mengambil 380px lebih dulu, dan di laptop 911px
+       kolom barang — yang paling banyak diisi — tinggal 228px. */
+    display: grid; grid-template-columns: clamp(280px, 36%, 380px) minmax(0, 1fr);
     grid-template-areas: "toko barang" "catatan barang" "total barang";
+    /* Dua baris pertama setinggi isinya; SISA tinggi daftar barang ditampung
+       baris terakhir. Tanpa ini tiga baris berbagi rata tinggi kolom barang,
+       jadi toko, catatan, dan total saling menjauh tiap barang ditambah. */
+    grid-template-rows: auto auto 1fr;
     column-gap: 20px; align-items: start;
   }
   body.meja .buat-order .fo-toko    { grid-area: toko; }
   body.meja .buat-order .fo-barang  { grid-area: barang; }
   body.meja .buat-order .fo-catatan { grid-area: catatan; }
   body.meja .buat-order .fo-total   { grid-area: total; }
+  /* Di kolom kiri yang sempit label duduk di atas, angkanya di bawah rata
+     kanan. Berdampingan membuat "Rp 12.480.000" patah jadi dua baris. */
+  body.meja .buat-order .fo-total {
+    flex-direction: column; align-items: stretch; gap: 8px;
+  }
+  body.meja .buat-order .fo-total .nilai { white-space: nowrap; text-align: right; }
 
   /* lembar (ubah order, rincian, tanya) muncul di tengah layar, bukan dari bawah */
   body.meja .tirai { align-items: center; }
