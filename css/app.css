@@ -36,6 +36,15 @@
   --sinyal:       #b4371f;   /* merah oksida: bahaya, hapus, salah */
   --sinyal-muda:  #f0ded5;
 
+  /* ---- warna data: HANYA untuk grafik dasbor (lihat DASBOR PEMILIK) ----
+     Satu warna per jenis angka. Diuji lolos kontras >= 3:1 di atas kartu
+     kraft dan tetap terbedakan bagi buta warna parsial. */
+  --data-omzet:   #1c5cab;   /* biru: omzet */
+  --data-order:   #c2500f;   /* oranye bata: jumlah order */
+  --data-margin:  #0f7d5a;   /* hijau: margin */
+  --naik:         #3fbf5a;   /* panah naik, di atas blok tinta */
+  --turun:        #ee7462;   /* panah turun, di atas blok tinta */
+
   /* kompatibilitas nama lama supaya tidak ada kelas yang jatuh */
   --bg: var(--kraft);
   --permukaan: var(--kraft-muda);
@@ -795,6 +804,9 @@ body.lebar #app, body.lebar .bar { max-width: 1280px; }
 }
 .lonceng { position: relative; min-width: 44px; min-height: 40px; padding: 8px 10px; }
 .lonceng .lencana { position: absolute; top: -9px; right: -9px; }
+/* display di atas mengalahkan atribut hidden bawaan peramban: tanpa baris
+   ini lencana tetap tampil sebagai "0" merah saat tidak ada catatan baru. */
+.lencana[hidden] { display: none; }
 
 /* Panel daftar: menggantung di bawah header, rata kanan. */
 .panel-notif {
@@ -1227,106 +1239,207 @@ table.sheet select {
 table.sheet select { padding-right: 34px; background-position: right 9px center; }
 table.sheet td:has(input[type=checkbox]) { text-align: center; }
 
-/* ---------- Dasbor pemilik ---------- */
-.grafik-gulir {
+/* ============================================================
+   DASBOR PEMILIK (ceo.js)
+   Saringan -> empat tab -> daftar -> lembar rincian.
+
+   Satu-satunya tempat ladang data boleh berwarna: grafik. Pemilik
+   meminta warnanya dibedakan (cokelat + hitam "terlalu monoton"),
+   jadi tiap JENIS ANGKA punya satu warna tetap — --data-omzet,
+   --data-order, --data-margin di :root. Teks tetap tinta; yang
+   berwarna hanya batang dan kotak kunci di samping labelnya.
+   ============================================================ */
+.dz-saring {
+  display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px;
+  margin-bottom: 8px;
+}
+.dz-atur {
+  grid-column: 1 / -1;
+  display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px;
+}
+.dz-atur[hidden] { display: none; }
+.dz-rentang {
+  font-size: 11px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase;
+  color: var(--tinta-2); margin: 0 0 12px; overflow-wrap: anywhere;
+}
+
+/* Empat tab selebar layar: semuanya terlihat di HP tanpa digeser. */
+.dz-tab {
+  display: grid; grid-template-columns: repeat(4, minmax(0, 1fr));
+  border-bottom: 3px solid var(--tinta); margin-bottom: 14px;
+}
+.dz-tab button {
+  background: none; border: 0; border-radius: 0; cursor: pointer;
+  min-height: 48px; padding: 10px 2px;
+  font: inherit; font-size: 11.5px; font-weight: 700;
+  letter-spacing: .06em; text-transform: uppercase; color: var(--tinta-2);
+}
+.dz-tab button.aktif { background: var(--tinta); color: var(--blok); }
+.dz-tab button:focus-visible { outline: 3px solid var(--tinta); outline-offset: -3px; }
+
+/* Saringan diganti: isi lama diredupkan sampai yang baru datang, supaya
+   halaman tidak melompat ke lingkaran putar lalu kembali. */
+#dz-isi.dz-memuat { opacity: .45; pointer-events: none; }
+
+/* --- empat angka utama --- */
+.dz-kpi .lbl { display: flex; align-items: center; gap: 6px; }
+.dz-kunci { display: inline-block; flex: 0 0 auto; width: 9px; height: 9px; }
+.judul-bagian .dz-kunci { margin-right: 7px; }
+.dz-delta {
+  margin-top: 8px; font-size: 11px; font-weight: 700; letter-spacing: .05em;
+  text-transform: uppercase; color: var(--blok);
+}
+.dz-delta.naik span  { color: var(--naik); }
+.dz-delta.turun span { color: var(--turun); }
+.dz-ket-banding { margin: -4px 0 12px; }
+
+/* --- kepala kartu: judul di kiri, tautan / pilihan di kanan --- */
+.dz-kepala {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 8px 12px; flex-wrap: wrap; margin-bottom: 8px;
+}
+.dz-kepala .judul-bagian { margin: 0; }
+.dz-tautan {
+  background: none; border: 0; padding: 8px 0; cursor: pointer;
+  font: inherit; font-size: 11.5px; font-weight: 700;
+  letter-spacing: .06em; text-transform: uppercase; color: var(--tinta);
+  text-decoration: underline; text-decoration-thickness: 2px; text-underline-offset: 3px;
+}
+.dz-metrik { margin-top: 0; gap: 6px; }
+.dz-metrik button {
+  flex: 0 0 auto; min-height: 40px; padding: 6px 11px;
+  display: inline-flex; align-items: center; gap: 6px;
+}
+
+/* --- grafik batang per waktu --- */
+.dz-baca {
+  display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 10px;
+  min-height: 2.9em; margin: 2px 0 8px;
+}
+.dz-baca b { font-size: 19px; font-weight: 800; font-variant-numeric: tabular-nums; }
+.dz-baca span { font-size: 12px; font-weight: 600; color: var(--tinta-2); }
+.dz-svg { width: 100%; overflow: hidden; }
+.dz-svg svg { display: block; touch-action: pan-y; }
+.dz-svg svg:focus { outline: none; }
+.dz-svg svg:focus-visible { outline: 3px solid var(--tinta); outline-offset: 2px; }
+.dz-tik { font-family: var(--font); font-size: 10px; font-weight: 600; fill: var(--tinta-2); }
+.dz-grid { stroke: var(--garis); stroke-width: 1; }
+.dz-dasar { stroke: var(--garis-kuat); stroke-width: 1; }
+.dz-sorot { fill: var(--kraft-tua); }
+/* batang yang sedang dibaca (atau yang tertinggi) diberi garis tinta */
+.dz-batang.dz-pilih { stroke: var(--tinta); stroke-width: 2; }
+.dz-bingkai {
   overflow-x: auto; -webkit-overflow-scrolling: touch;
-  scrollbar-width: thin;
+  border: 2px solid var(--tinta); background: var(--blok);
 }
-.grafik-gulir svg { display: block; }
+.dz-tabel-deret { margin-top: 10px; max-height: 340px; overflow-y: auto; }
+.dz-tabel-deret[hidden] { display: none; }
 
-/* Daftar seluruh barang bisa ratusan baris. Dibatasi tingginya supaya
-   bagian bawah dasbor tetap terjangkau, bukan digulir berkilo-kilo. */
-.gulir-tinggi { max-height: 62vh; overflow-y: auto; }
-.gulir-tinggi thead th { position: sticky; top: 0; z-index: 1; }
+/* --- peringkat & baris daftar: nomor, nama, angka, batang --- */
+.dz-tiga { display: grid; grid-template-columns: minmax(0, 1fr); }
+.dz-rank { list-style: none; margin: 0; padding: 0; }
+.dz-rank li + li, .dz-list .dz-baris + .dz-baris { border-top: 1px solid var(--garis); }
+.dz-rank-baris, .dz-baris {
+  display: flex; gap: 10px; align-items: flex-start; width: 100%;
+  min-height: 48px; padding: 10px 6px;
+  background: none; border: 0; border-radius: 0; text-align: left;
+  font: inherit; color: var(--tinta);
+}
+button.dz-rank-baris, .dz-baris { cursor: pointer; }
+button.dz-rank-baris:active, .dz-baris:active { background: var(--kraft-tua); }
+button.dz-rank-baris:focus-visible, .dz-baris:focus-visible { outline: 3px solid var(--tinta); outline-offset: -3px; }
+.dz-baris.dz-pilih { background: var(--kraft-tua); box-shadow: inset 4px 0 0 var(--tinta); padding-left: 12px; }
+.dz-no {
+  flex: 0 0 22px; text-align: right;
+  font-family: var(--stensil); font-weight: 400; font-size: 15px; line-height: 1.3;
+  color: var(--tinta-3);
+}
+.dz-badan { flex: 1 1 auto; min-width: 0; display: block; }
+.dz-atas { display: flex; gap: 10px; justify-content: space-between; align-items: baseline; }
+.dz-nama { min-width: 0; font-size: 14px; font-weight: 700; line-height: 1.3; overflow-wrap: anywhere; }
+.dz-nilai {
+  flex: 0 0 auto; font-size: 14px; font-weight: 800; white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+.dz-ket { display: block; margin-top: 2px; font-size: 11.5px; color: var(--tinta-2); overflow-wrap: anywhere; }
+.dz-bar { display: block; height: 6px; margin-top: 6px; }
+.dz-bar i { display: block; height: 100%; background: var(--data-omzet); }
+.dz-sisa, .dz-nihil { padding: 8px 6px 0; font-size: 12px; color: var(--tinta-2); }
 
-/* ---------- Grafik tren barang ---------- */
-.tren-daftar { display: grid; gap: 12px; }
-.tren-baris { border: 2px solid var(--garis-kuat); padding: 11px 12px; min-width: 0; }
-.tren-kepala { display: flex; gap: 9px; align-items: baseline; min-width: 0; }
-.tren-no {
-  flex: 0 0 auto; font-family: var(--stensil); font-weight: 400; font-size: 17px;
-  line-height: 1; color: var(--tinta-2);
+/* --- kartu margin --- */
+.dz-margin { display: grid; gap: 14px; }
+.dz-angka { font-family: var(--stensil); font-weight: 400; font-size: 30px; line-height: 1; }
+.dz-meter-label {
+  display: flex; justify-content: space-between; gap: 10px; margin-bottom: 6px;
+  font-size: 12px; font-weight: 600; color: var(--tinta-2);
 }
-.tren-nama {
-  flex: 1 1 auto; min-width: 0; font-weight: 800; font-size: 14px; line-height: 1.25;
-  overflow-wrap: anywhere;
-}
-.tren-svg { display: block; width: 100%; height: 48px; margin: 9px 0 7px; }
-.tren-angka {
-  font-size: 11px; font-weight: 700; letter-spacing: .07em; text-transform: uppercase;
-  color: var(--tinta-2); overflow-wrap: anywhere;
-}
-.tren-angka b { color: var(--tinta); }
+.dz-meter-label b { color: var(--tinta); white-space: nowrap; }
+.dz-meter { height: 10px; background: var(--kraft-tua); }
+.dz-meter i { display: block; height: 100%; background: var(--data-margin); }
+.dz-pisah { margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--garis); }
 
-/* Di layar lebar, dua garis muat berdampingan tanpa jadi kecil. */
-@media (min-width: 900px) {
-  body.meja .tren-daftar { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-}
-
-/* Peringatan yang muncul DI BAWAH isi kartu, bukan di atasnya. */
-.peringatan.di-bawah { margin: 12px 0 0; }
-
-/* Baris sales yang sedang dipilih. Ditandai dengan bentuk (pita tinta di
-   tepi kiri), bukan warna latar — sama seperti penanda keadaan lain. */
-table.dasbor-tabel tr.baris-pilih td { background: var(--kraft-tua); }
-table.dasbor-tabel tr.baris-pilih td:first-child {
-  box-shadow: inset 4px 0 0 var(--tinta);
-}
-
-/* Bentuk HP untuk daftar dasbor. Tabel enam kolom tidak bisa dibaca di
-   layar 375px tanpa menggeser ke samping, jadi di HP tiap baris jadi satu
-   kartu: nama di atas, angkanya dalam kisi 2x2 yang tidak pernah meluber. */
-.kartu-angka {
-  border: 2px solid var(--garis-kuat);
-  padding: 12px; margin-bottom: 10px; background: var(--blok);
-}
-.kartu-angka:last-child { margin-bottom: 0; }
-.kartu-angka.baris-pilih { border-color: var(--tinta); box-shadow: inset 4px 0 0 var(--tinta); }
-/* Nama barang dan kategori datang apa adanya dari program pemilik —
-   ada yang panjang tanpa spasi. Tanpa ini ia menembus tepi kartu. */
-.kartu-angka .nama-kartu {
-  font-weight: 800; font-size: 14px; line-height: 1.3;
-  overflow-wrap: anywhere; min-width: 0;
-}
-.kartu-angka .ket-kartu {
-  font-size: 11px; font-weight: 700; letter-spacing: .06em;
-  text-transform: uppercase; color: var(--tinta-2); margin-top: 3px;
-  overflow-wrap: anywhere; min-width: 0;
-}
-.kartu-angka .sel-baris {
-  display: grid; grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 8px; margin-top: 10px;
-}
-.sel-kartu { min-width: 0; }
-.sel-kartu span {
-  display: block; font-size: 10px; font-weight: 700;
-  letter-spacing: .12em; text-transform: uppercase; color: var(--tinta-2);
-}
-.sel-kartu b {
-  display: block; font-size: 15px; font-weight: 800;
-  font-variant-numeric: tabular-nums; overflow-wrap: anywhere;
-}
-.sel-kartu i {
-  display: block; font-style: normal; font-size: 10px; font-weight: 700;
-  letter-spacing: .1em; text-transform: uppercase; color: var(--tinta-2);
-}
-
-/* Di layar lebar, penyeleksi sales tidak perlu selebar halaman — kotak
-   sepanjang 1000px untuk empat nama hanya membuang ruang baca. */
-@media (min-width: 900px) {
-  body.meja #pilih-sales { max-width: 320px; }
-}
-
-.grafik-kunci {
-  display: flex; gap: 16px; margin-top: 10px;
-  font-size: 10.5px; font-weight: 700;
-  letter-spacing: .12em; text-transform: uppercase;
+/* --- alat daftar: cari, saring, urutkan, unduh --- */
+.dz-alat { display: flex; flex-wrap: wrap; gap: 10px; align-items: flex-end; margin-bottom: 8px; }
+.dz-alat > * { flex: 1 1 100%; min-width: 0; }
+.dz-pilah { margin-top: 0; }
+.dz-alat-baris { display: flex; gap: 10px; align-items: flex-end; }
+.dz-urut { flex: 1 1 auto; min-width: 0; display: block; }
+.dz-urut span {
+  display: block; margin-bottom: 5px;
+  font-size: 10.5px; font-weight: 700; letter-spacing: .13em; text-transform: uppercase;
   color: var(--tinta-2);
 }
-.grafik-kunci span { display: inline-flex; align-items: center; gap: 6px; }
-.grafik-kunci .kot { width: 12px; height: 12px; display: inline-block; }
-.grafik-kunci .kot-omzet  { background: var(--kraft-tua); border: 1.5px solid var(--tinta); }
-.grafik-kunci .kot-margin { background: var(--tinta); }
+.dz-alat-baris .btn { flex: 0 0 auto; width: auto; min-height: var(--tap); }
+.dz-hitung { margin: 0 0 4px; }
+.dz-lagi { margin-top: 12px; }
+
+/* --- tabel (layar lebar saja) --- */
+.dz-tabel tbody tr { cursor: pointer; }
+.dz-tabel tbody tr:focus-visible td { outline: 3px solid var(--tinta); outline-offset: -3px; }
+.dz-tabel-deret .dz-tabel tbody tr { cursor: default; }
+.dz-tabel th.bisa-urut { cursor: pointer; user-select: none; }
+.dz-tabel th.bisa-urut.aktif { text-decoration: underline; text-underline-offset: 3px; }
+.dz-tabel .dz-kol-no { width: 46px; text-align: right; color: var(--tinta-3); font-weight: 600; }
+.dz-tabel thead .dz-kol-no { color: var(--blok); }
+.dz-tabel td .dz-bar { height: 4px; margin-top: 5px; }
+/* Baris sales yang sedang disaring: pita tinta di tepi kiri. */
+table.dasbor-tabel tr.baris-pilih td { background: var(--kraft-tua); }
+table.dasbor-tabel tr.baris-pilih td:first-child { box-shadow: inset 4px 0 0 var(--tinta); }
+
+/* --- lembar rincian --- */
+.ringkas.dz-mini {
+  display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px;
+  margin: 10px 0 14px;
+}
+.dz-mini .sel .nilai { font-size: 22px; }
+.dz-rinci-ket { margin: 0 0 12px; }
+.dz-judul-rinci { margin-top: 18px; }
+.dz-rinci .btn { margin-top: 18px; }
+
+@media (min-width: 700px) {
+  .dz-margin { grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: end; }
+}
+@media (min-width: 900px) {
+  body.meja .dz-saring { max-width: 640px; }
+  body.meja .dz-tab { max-width: 640px; }
+  body.meja .dz-cari { flex: 2 1 260px; }
+  body.meja .dz-pilah { flex: 0 1 auto; }
+  body.meja .dz-alat-baris { flex: 1 1 280px; }
+  /* Empat blok sebaris di laptop 900-1180px hanya selebar ±150px: omzet
+     ratusan juta patah ke baris kedua. Di sana tetap dua-dua. */
+  body.meja .dz-kpi { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  /* Laptop 900-1180px: sisa lebarnya hanya ±610px, tabel enam kolom
+     memaksa nama barang turun tiga baris. Di sana tetap baris ringkas. */
+  body.meja .dz .daftar-kartu { display: block; }
+  body.meja .dz .daftar-tabel { display: none; }
+}
+@media (min-width: 1180px) {
+  body.meja .dz-kpi { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  body.meja .dz-tiga { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+  body.meja .dz .daftar-kartu { display: none; }
+  body.meja .dz .daftar-tabel { display: block; }
+  body.meja .dz-urut { display: none; }   /* di tabel, kepala kolom yang diklik */
+}
 
 /* Tabel dasbor memakai kisi yang sama dengan edit massal, tapi isinya
    tidak bisa diketik — jadi selnya lebih rapat. */
