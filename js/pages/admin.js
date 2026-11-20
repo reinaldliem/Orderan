@@ -826,6 +826,10 @@ function bukaUbahOrder(p, ctx, selesai) {
     if (!e.target.closest('#u-simpan')) return;
     const keliru = form.salah();
     if (keliru) { pesan(keliru, 'salah'); return; }
+    const nol = form.hargaNol();
+    if (nol.length && !(await tanya('Ada harga Rp 0',
+      `${nol.join(', ')} — harganya masih Rp 0. Kalau lupa, tekan Batal lalu isi harganya.`,
+      'Tetap simpan'))) return;
 
     const b = tirai.querySelector('#u-simpan');
     b.disabled = true; b.textContent = 'Menyimpan…';

@@ -71,6 +71,12 @@ export async function gambar(isi, ctx) {
 
     const d = form.baca();
     const total = form.total();
+    // Harga Rp 0 hampir selalu lupa diisi (ratusan barang baru belum berharga).
+    // Tidak diblokir — bisa saja barang bonus — tapi harus disadari dulu.
+    const nol = form.hargaNol();
+    if (nol.length && !(await tanya('Ada harga Rp 0',
+      `${nol.join(', ')} — harganya masih Rp 0. Kalau lupa, tekan Batal lalu isi harganya.`,
+      'Tetap simpan'))) return;
     if (!(await tanya('Simpan order ini?',
       `${d.toko_nama} · ${d.item.length} barang · total ${rupiah(total)}`, 'Ya, simpan'))) return;
 

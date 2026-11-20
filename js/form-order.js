@@ -372,6 +372,8 @@ export function buatFormOrder(o) {
     baca,
     salah,
     total: () => baca().item.reduce((s, d) => s + d.qty * d.harga, 0),
+    /** Nama barang yang harganya masih Rp 0 — barang baru dari daftar global belum berharga. */
+    hargaNol: () => baca().item.filter((d) => !(d.harga > 0)).map((d) => d.barang_nama),
     fokusToko: () => pilihToko.el.scrollIntoView({ behavior: 'smooth', block: 'center' }),
     bukaToko: () => pilihToko.buka(),
   };
