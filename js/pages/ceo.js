@@ -54,7 +54,7 @@ const BARIS_PER_HALAMAN = 50;
 const keadaanDaftar = {
   sales: { q: '', saring: 'semua', urut: 'omzet', batas: BARIS_PER_HALAMAN },
   toko: { q: '', saring: 'semua', urut: 'omzet', batas: BARIS_PER_HALAMAN },
-  barang: { q: '', saring: 'semua', urut: 'omzet', batas: BARIS_PER_HALAMAN },
+  barang: { q: '', saring: 'semua', urut: 'omzet', batas: BARIS_PER_HALAMAN, pt: '', kat: '' },
 };
 
 /* ------------------------------------------------------------
@@ -72,6 +72,10 @@ const bilangan = (n) => (Number(n) || 0).toLocaleString('id-ID', { maximumFracti
 /** Margin null = HPP barangnya belum diisi. Itu BUKAN nol. */
 const marginTeks = (n) => ((n === null || n === undefined) ? '—' : penuh(n));
 const kosong = (v) => v === null || v === undefined;
+/** Bagian dari keseluruhan, mis. "34%" — hanya untuk dibaca, bukan uang. */
+const porsi = (v, total) => (Number(total) > 0
+  ? `${(Number(v) / Number(total) * 100).toLocaleString('id-ID', { maximumFractionDigits: 1 })}%` : '—');
+const TANPA_PT = '(tanpa perusahaan)';
 
 // Tanggal dihitung sebagai tanggal kalender (UTC tengah malam), berangkat
 // dari hariIni() yang sudah memakai zona Asia/Jakarta.
@@ -682,7 +686,9 @@ export async function gambar(isi) {
         db.rpc('dasbor_sales', p),
         db.rpc('dasbor_rinci', { ...p, p_per: 'toko', p_sales_id: sid }),
         db.rpc('dasbor_barang', { ...p, p_limit: 0, p_sales_id: sid }),
-        db.rpc('dasbor_kategori', { ...p, p_sales_id: sid }),
+        db.rpc('dasbor_rinci', { ...p, p_per: 'kategori', p_sales_id: sid }),
+        db.rpc('dasbor_rinci', { ...p, p_per: 'perusahaan', p_sales_id: sid }),
+        db.rpc('dasbor_rinci', { ...p, p_per: 'tempo', p_sales_id: sid }),
       ]);
     } catch (e) {
       if (no !== nomorMuat) return;
@@ -703,6 +709,7 @@ export async function gambar(isi) {
       ringkas: satu(h[0]), lalu: satu(h[1]),
       deret: isiDeret(h[2], r),
       sales: h[3] || [], toko: h[4] || [], barang: h[5] || [], kategori: h[6] || [],
+      pt: h[7] || [], tempo: h[8] || [],
     };
     isiPilihanSales();
     elIsi.classList.remove('dz-memuat');
@@ -723,7 +730,7 @@ export async function gambar(isi) {
   /* ---------------- Ringkasan ---------------- */
 
   function gambarRingkas() {
-    const { r, ringkas: s, lalu, deret, sales, toko, barang } = data;
+    const { r, ringkas: s, lalu, deret, sales, toko, barang, pt, kategori, tempo } = data;
     const omzet = Number(s.omzet) || 0;
     const margin = Number(s.margin) || 0;
     const berHpp = Number(s.omzet_ber_hpp) || 0;
@@ -783,6 +790,37 @@ export async function gambar(isi) {
         <div id="dz-grafik"></div>
         ${metrikAktif === 'margin' && cakupan < 100 ? `<div class="bantuan">Margin baru terhitung untuk ${cakupan}% omzet — lihat kartu Margin di bawah.</div>` : ''}
       </div>` : ''}
+
+      ${pt.length ? `
+      <div class="dz-tiga">
+        <div class="kartu">
+          <div class="dz-kepala"><div class="judul-bagian">Per perusahaan</div></div>
+          ${peringkatHtml(pt, {
+            jenis: 'perusahaan', kunci: (x) => x.kunci, nama: (x) => x.nama, batas: 6,
+            nilai: (x) => x.omzet, teks: (x) => rupiah(x.omzet),
+            ket: (x) => `${porsi(x.omzet, omzet)} omzet · ${penuh(x.jml_barang)} jenis barang · ${penuh(x.jml_order)} order`,
+          })}
+        </div>
+        <div class="kartu">
+          <div class="dz-kepala"><div class="judul-bagian">Per kategori</div></div>
+          ${peringkatHtml(kategori, {
+            jenis: 'kategori', kunci: (x) => x.kunci, nama: (x) => x.nama, batas: 6,
+            nilai: (x) => x.omzet, teks: (x) => rupiah(x.omzet),
+            ket: (x) => `${porsi(x.omzet, omzet)} omzet · ${penuh(x.jml_barang)} jenis barang`,
+          })}
+        </div>
+        <div class="kartu">
+          <div class="dz-kepala"><div class="judul-bagian">Tempo pembayaran</div></div>
+          ${peringkatHtml(tempo, {
+            jenis: 'tempo', kunci: (x) => x.kunci, batas: 3,
+            nama: (x) => (x.ket ? `${x.nama} · ${x.ket} hari` : x.nama),
+            nilai: (x) => x.omzet, teks: (x) => rupiah(x.omzet),
+            ket: (x) => `${porsi(x.omzet, omzet)} omzet · ${penuh(x.jml_order)} order`,
+          })}
+        </div>
+      </div>
+      ${pt.some((x) => x.kunci === TANPA_PT) ? `<div class="bantuan dz-ket-banding">“${esc(TANPA_PT)}” = barang lama yang belum
+        diberi kelompok &amp; perusahaan. Isi lewat Admin → Barang → Belum ada kelompok.</div>` : ''}` : ''}
 
       <div class="dz-tiga">
         <div class="kartu">
@@ -940,35 +978,58 @@ export async function gambar(isi) {
   /* ---------------- Barang ---------------- */
 
   function gambarBarang() {
-    const { r, sid, barang, kategori } = data;
-    const adaKategori = kategori.length >= 2;   // satu kategori saja tidak memberi tahu apa-apa
+    const { r, sid, barang } = data;
+    const st = keadaanDaftar.barang;
+    const unik = (f) => [...new Set(barang.map(f).filter(Boolean))].sort();
+    const daftarPt = unik((x) => x.perusahaan);
+    const daftarKat = unik((x) => x.kategori_nama);
+    if (st.pt && !daftarPt.includes(st.pt)) st.pt = '';
+    if (st.kat && !daftarKat.includes(st.kat)) st.kat = '';
+    const opsi = (daftar, v, semua) => `<option value="">${esc(semua)}</option>` + daftar.map((x) =>
+      `<option value="${esc(x)}"${x === v ? ' selected' : ''}>${esc(x)}</option>`).join('');
+    const tersaring = barang.filter((x) => (!st.pt || x.perusahaan === st.pt) && (!st.kat || x.kategori_nama === st.kat));
+    const tempoTeks = (x) => (x.tempo === 'BARANG BESI' ? '90 hari' : x.tempo === 'FAST MOVING' ? '30 hari' : '');
+    const grup = (x) => [x.kelompok_nama, x.perusahaan, tempoTeks(x)].filter((v) => v && !v.startsWith('(')).join(' · ');
     elIsi.innerHTML = `
-      ${adaKategori ? `<div class="kartu"><div class="judul-bagian">Per kategori</div>${peringkatHtml(kategori, {
-        nama: (x) => x.kategori_nama, nilai: (x) => x.omzet, teks: (x) => rupiah(x.omzet), batas: 8,
-        ket: (x) => `${penuh(x.jml_barang)} barang · ${penuh(x.jml_order)} order`,
-      })}</div>` : ''}
+      <div class="dz-saring">
+        <div><label class="label" for="dz-b-pt">Perusahaan</label>
+          <select id="dz-b-pt">${opsi(daftarPt, st.pt, 'Semua perusahaan')}</select></div>
+        <div><label class="label" for="dz-b-kat">Kategori</label>
+          <select id="dz-b-kat">${opsi(daftarKat, st.kat, 'Semua kategori')}</select></div>
+      </div>
       <div class="kartu"><div id="dz-daftar"></div></div>`;
+    const gantiSaring = () => {
+      st.pt = elIsi.querySelector('#dz-b-pt').value;
+      st.kat = elIsi.querySelector('#dz-b-kat').value;
+      st.batas = BARIS_PER_HALAMAN;
+      gambarBarang();
+    };
+    elIsi.querySelector('#dz-b-pt').addEventListener('change', gantiSaring);
+    elIsi.querySelector('#dz-b-kat').addEventListener('change', gantiSaring);
+    const disaring = [st.pt, st.kat].filter(Boolean).join(' · ');
     pasangDaftar(elIsi.querySelector('#dz-daftar'), {
-      keadaan: keadaanDaftar.barang,
-      baris: barang,
+      keadaan: st,
+      baris: tersaring,
       kunci: (x) => x.barang_nama,
       batang: (x) => x.omzet,
-      cari: (x) => ({ nama: x.barang_nama || '', kata: adaKategori ? x.kategori_nama || '' : '' }),
+      cari: (x) => ({ nama: x.barang_nama || '', kata: [x.kelompok_nama, x.perusahaan, x.kategori_nama].join(' ') }),
       ketCari: 'Cari barang…',
       saring: [
         { k: 'semua', label: 'Semua' },
         { k: 'tanpahpp', label: 'HPP belum diisi', uji: (x) => kosong(x.margin) },
       ],
       hitung: (n, semua) => (n === semua ? `${penuh(semua)} barang berbeda terjual${sid ? ` oleh ${namaSales(sid)}` : ''}`
+        + (disaring ? ` · ${disaring}` : '')
         : `${penuh(n)} dari ${penuh(semua)} barang`),
       hp: (x) => ({
         nama: x.barang_nama,
         nilai: rupiah(x.omzet),
         ket: `${bilangan(x.qty)} ${x.satuan || ''} · ${penuh(x.jml_order)} order · ${penuh(x.jml_toko)} toko`
+          + (grup(x) ? ` · ${grup(x)}` : '')
           + (kosong(x.margin) ? ' · HPP belum diisi' : ''),
       }),
       kolom: [
-        { judul: 'Barang', urut: 'nama', isi: (x) => `<b>${esc(x.barang_nama)}</b>${adaKategori ? `<span class="ket-kecil">${esc(x.kategori_nama || '')}</span>` : ''}` },
+        { judul: 'Barang', urut: 'nama', isi: (x) => `<b>${esc(x.barang_nama)}</b>${grup(x) ? `<span class="ket-kecil">${esc(grup(x))}</span>` : ''}` },
         { judul: 'Terjual', kelas: 'num', lebar: 120, isi: (x) => `${esc(bilangan(x.qty))} ${esc(x.satuan || '')}` },
         { judul: 'Omzet', urut: 'omzet', kelas: 'num', lebar: 150, isi: (x, maks) => selBatang(x.omzet, maks) },
         { judul: 'Order', urut: 'order', kelas: 'num', lebar: 76, isi: (x) => esc(penuh(x.jml_order)) },
@@ -985,9 +1046,9 @@ export async function gambar(isi) {
       buka: (x) => bukaRinci('barang', x.barang_nama),
       unduh: {
         nama: `dasbor-barang-${r.dari}-sd-${r.sampai}.csv`,
-        kolom: ['Barang', 'Kategori', 'Terjual', 'Satuan', 'Omzet', 'Order', 'Toko', 'Margin'],
-        baris: (x) => [x.barang_nama, x.kategori_nama || '', keExcel(x.qty), x.satuan || '', uang(x.omzet),
-          x.jml_order, x.jml_toko, uang(x.margin)],
+        kolom: ['Barang', 'Kelompok', 'Kategori', 'Perusahaan', 'Tempo', 'Terjual', 'Satuan', 'Omzet', 'Order', 'Toko', 'Margin'],
+        baris: (x) => [x.barang_nama, x.kelompok_nama || '', x.kategori_nama || '', x.perusahaan || '', tempoTeks(x),
+          keExcel(x.qty), x.satuan || '', uang(x.omzet), x.jml_order, x.jml_toko, uang(x.margin)],
       },
     });
   }
@@ -1027,6 +1088,39 @@ export async function gambar(isi) {
       if (sid !== x.sales_id) {
         aksi = `<button type="button" class="btn garis" data-saring-sales="${esc(x.sales_id)}">Tampilkan seluruh dasbor hanya untuk ${esc(x.nama || 'sales ini')}</button>`;
       }
+    } else if (jenis === 'perusahaan' || jenis === 'kategori' || jenis === 'tempo') {
+      const x = { perusahaan: data.pt, kategori: data.kategori, tempo: data.tempo }[jenis].find((g) => g.kunci === kunci);
+      if (!x) return;
+      const saring = { [`p_${jenis}`]: x.kunci };
+      judul = jenis === 'perusahaan' ? `Perusahaan ${x.nama}`
+        : jenis === 'tempo' ? `Tempo ${x.nama}${x.ket ? ` · ${x.ket} hari` : ''}` : x.nama;
+      mini = [['Omzet (Rp)', penuh(x.omzet)], ['Order', penuh(x.jml_order)],
+        ['Jenis barang', penuh(x.jml_barang)], ['Toko', penuh(x.jml_toko)]];
+      const sisi = jenis === 'perusahaan' ? 'kategori' : 'kelompok';
+      muatan = () => Promise.all([
+        db.rpc('dasbor_rinci', { ...p, p_per: r.satuan, p_sales_id: sid, ...saring }),
+        db.rpc('dasbor_rinci', { ...p, p_per: sisi, p_sales_id: sid, ...saring }),
+        db.rpc('dasbor_rinci', { ...p, p_per: 'barang', p_sales_id: sid, ...saring }),
+        db.rpc('dasbor_rinci', { ...p, p_per: 'sales', p_sales_id: sid, ...saring }),
+      ]);
+      susun = ([deret, kel, barang, sales]) => ({
+        deret,
+        ket: `${porsi(x.omzet, data.ringkas.omzet)} dari seluruh omzet di rentang ini.`,
+        bagian: [
+          [`Per ${sisi} (${penuh(kel.length)})`, peringkatHtml(kel, {
+            batas: 40, nama: (g) => g.nama || '—', nilai: (g) => g.omzet, teks: (g) => rupiah(g.omzet),
+            ket: (g) => [g.ket, `${penuh(g.jml_barang)} jenis barang`, `${penuh(g.jml_order)} order`].filter(Boolean).join(' · '),
+          })],
+          [barang.length > 40 ? '40 barang terbesar' : `Barang terjual (${penuh(barang.length)})`, peringkatHtml(barang, {
+            batas: 40, nama: (b) => b.nama, nilai: (b) => b.omzet, teks: (b) => rupiah(b.omzet),
+            ket: (b) => `${bilangan(b.qty)} ${b.satuan || ''} · ${penuh(b.jml_order)} order · ${penuh(b.jml_toko)} toko`,
+          })],
+          [`Sales yang menjual (${penuh(sales.length)})`, peringkatHtml(sales, {
+            batas: 30, nama: (g) => g.nama || '—', nilai: (g) => g.omzet, teks: (g) => rupiah(g.omzet),
+            ket: (g) => `${penuh(g.jml_order)} order · ${penuh(g.jml_toko)} toko`,
+          })],
+        ],
+      });
     } else if (jenis === 'toko') {
       const x = data.toko.find((t) => t.kunci === kunci);
       if (!x) return;

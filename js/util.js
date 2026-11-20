@@ -46,6 +46,23 @@ export function keAngka(teks) {
   return Number.isFinite(n) ? n : 0;
 }
 
+/**
+ * Khusus kolom JUMLAH barang. Barang per kilo / per meter membuat sales
+ * mengetik "2.5" — dulu terbaca 25 karena titik dianggap pemisah ribuan.
+ * Di sini titik yang diikuti TEPAT tiga angka tetap ribuan ("1.500" =
+ * 1500), selain itu titik adalah desimal ("2.5", "0.75", "12.25").
+ *   "2.5" -> 2.5   "2,5" -> 2.5   "1.500" -> 1500   "1.250,5" -> 1250.5
+ */
+export function keJumlah(teks) {
+  if (typeof teks === 'number') return Number.isFinite(teks) ? teks : 0;
+  const s = String(teks ?? '').replace(/[^\d,.-]/g, '');
+  if (!s.includes(',') && /^-?\d*\.\d{1,2}$/.test(s)) {
+    const n = parseFloat(s);
+    return Number.isFinite(n) ? n : 0;
+  }
+  return keAngka(s);
+}
+
 /** Tanggal hari ini di zona Jakarta, format YYYY-MM-DD. */
 export function hariIni() {
   return new Intl.DateTimeFormat('sv-SE', { timeZone: 'Asia/Jakarta' }).format(new Date());

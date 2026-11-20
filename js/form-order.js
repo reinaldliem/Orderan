@@ -5,7 +5,7 @@
 
 import { ikon } from './ikon.js';
 import { buatPilih } from './pilih.js';
-import { rupiah, angka, keAngka, pesan, tanya } from './util.js';
+import { rupiah, angka, keAngka, keJumlah, pesan, tanya } from './util.js';
 
 /**
  * Keterangan koli di bawah Jumlah: "1 koli = 144 PCS", atau setelah jumlah
@@ -216,7 +216,7 @@ export function buatFormOrder(o) {
           if (ganti) inHarga.value = '';
         }
         ubah();
-        if (!keAngka(inQty.value)) inQty.focus();
+        if (!keJumlah(inQty.value)) inQty.focus();
       },
     });
     kotak.querySelector('[data-slot="pilih"]').appendChild(pilihBarang.el);
@@ -250,7 +250,7 @@ export function buatFormOrder(o) {
         barang_id: v?.id ?? null,
         barang_nama: v?.nama || '',
         satuan: baris.satuan || 'PCS',
-        qty: keAngka(inQty.value),
+        qty: keJumlah(inQty.value),
         harga: diisi,
       };
       if (baris.beratKg) {

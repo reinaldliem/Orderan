@@ -758,9 +758,16 @@ body.lebar #app, body.lebar .bar { max-width: 1280px; }
   gap: 10px; margin-bottom: 12px;
 }
 .saring-order > div:nth-child(n+3) { grid-column: 1 / -1; }   /* sales, status, cari selebar kartu */
+.saring-order > div.setengah { grid-column: auto; }             /* sales & tempo berdampingan */
+.sheet td.k-tempo { white-space: nowrap; }
+/* dua isian/pilihan berdampingan (kelompok + perusahaan, kategori + tempo) */
+.dua-kolom { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.dua-kolom > .baris { min-width: 0; }
+.kl-dua { grid-template-columns: minmax(0, 1.7fr) minmax(0, 1fr); }   /* kategori panjang, tempo pendek */
 /* saringan status nota sejajar dengan isian di sebelahnya */
 .saring-order .saring { margin-top: 0; }
-.saring-order .saring button { min-height: var(--tap); }
+.saring-order .saring { gap: 6px; }
+.saring-order .saring button { min-height: var(--tap); min-width: 0; padding-inline: 4px; letter-spacing: .04em; }
 
 .aksi-order { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
 /* tombol kecil berdampingan di HP: dirapatkan supaya label tidak terlipat */
@@ -860,9 +867,15 @@ body.lebar #app, body.lebar .bar { max-width: 1280px; }
 .catatan-baris .siapa .tanda { margin-right: 6px; padding: 1px 6px; }
 
 @media (min-width: 900px) {
-  .saring-order { grid-template-columns: 1fr 1fr 1fr 1.4fr 1.6fr; }
+  /* laptop 900-1180px: dua baris (Dari Sampai Sales / Tempo Status Cari) */
+  .saring-order { grid-template-columns: minmax(0, 1fr) minmax(0, 1.25fr) minmax(0, 1fr); }
   .saring-order > div:nth-child(n+3) { grid-column: auto; }
   .aksi-order { grid-template-columns: 1.3fr 1fr 1fr 1fr; }
+  /* 4 blok sebaris hanya selebar ±150px di laptop: Rp ratusan juta terlipat. */
+  .ringkas.empat { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (min-width: 1180px) {
+  .saring-order { grid-template-columns: repeat(4, minmax(0, 1fr)) minmax(0, 1.3fr) minmax(0, 1.3fr); }
   .ringkas.empat { grid-template-columns: repeat(4, minmax(0, 1fr)); }
 }
 

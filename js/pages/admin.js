@@ -91,8 +91,15 @@ async function tabOrder(panel, ctx) {
           <input type="date" id="d1" value="${awal}"></div>
         <div><label class="label" for="d2">Sampai</label>
           <input type="date" id="d2" value="${akhir}"></div>
-        <div><label class="label" for="f-sales">Sales</label>
+        <div class="setengah"><label class="label" for="f-sales">Sales</label>
           <select id="f-sales"><option value="">Semua sales</option></select></div>
+        <div class="setengah"><label class="label" for="f-tempo">Tempo</label>
+          <select id="f-tempo">
+            <option value="">Semua</option>
+            <option value="BARANG BESI">Barang besi · 90 hari</option>
+            <option value="FAST MOVING">Fast moving · 30 hari</option>
+            <option value="-">Belum ada tempo</option>
+          </select></div>
         <div><span class="label" id="lbl-status">Status nota</span>
           <div class="saring" id="f-status" role="group" aria-labelledby="lbl-status">
             <button type="button" data-status="semua" aria-pressed="false">Semua</button>
@@ -138,6 +145,7 @@ async function tabOrder(panel, ctx) {
   const inD1 = panel.querySelector('#d1');
   const inD2 = panel.querySelector('#d2');
   const inCari = panel.querySelector('#f-cari');
+  const selTempo = panel.querySelector('#f-tempo');
   const btnSegarkan = panel.querySelector('#btn-segarkan');
   const elInfo = panel.querySelector('#info-segar');
   const elHasil = panel.querySelector('#hasil');
@@ -160,7 +168,7 @@ async function tabOrder(panel, ctx) {
   const KOLOM_ORDER =
     'id,no_pesanan,tanggal,sales_id,toko_id,toko_nama,catatan,total,toko(kota),' +
     'pesanan_item(id,urut,barang_id,barang_nama,satuan,qty,harga,harga_per_kg,berat_kg,subtotal,' +
-    'nota_dibuat,no_nota,nota_pada),' +
+    'nota_dibuat,no_nota,nota_pada,barang(kelompok_barang(tempo,tempo_hari))),' +
     'pesanan_catatan(id,teks,dibuat_pada,dibaca_pada)';
 
   async function tarik() {
@@ -220,6 +228,14 @@ async function tabOrder(panel, ctx) {
     }
   }
 
+  /** Lolos saringan tempo? '-' = barang yang belum masuk kelompok mana pun. */
+  function lolosTempo(i) {
+    const t = selTempo.value;
+    if (!t) return true;
+    const k = tempoItem(i);
+    return t === '-' ? !k : k?.tempo === t;
+  }
+
   /** Lolos saringan status? Barang yang baru diubah tetap tampil (lihat tetapTampil). */
   function lolosStatus(i) {
     if (status === 'semua' || tetapTampil.has(i.id)) return true;
@@ -247,9 +263,9 @@ async function tabOrder(panel, ctx) {
         String(p.toko_nama).toLowerCase().includes(q) ||
         String(namaSales[p.sales_id] ?? '').toLowerCase().includes(q) ||
         String(p.no_pesanan).toLowerCase().includes(q);
-      const cocok = cocokOrder ? item : item.filter((i) =>
+      const cocok = (cocokOrder ? item : item.filter((i) =>
         String(i.barang_nama).toLowerCase().includes(q) ||
-        String(i.no_nota ?? '').toLowerCase().includes(q));
+        String(i.no_nota ?? '').toLowerCase().includes(q))).filter(lolosTempo);
       if (cocok.length) adaCocok = true;
       nPending += cocok.filter((i) => !i.nota_dibuat).length;
 
@@ -312,6 +328,7 @@ async function tabOrder(panel, ctx) {
             <th scope="col">Sales</th>
             <th scope="col">Toko</th>
             <th scope="col">Barang</th>
+            <th scope="col">Tempo</th>
             <th scope="col" class="ang">Jumlah</th>
             <th scope="col" class="ang">Harga</th>
             <th scope="col" class="ang">Jumlah Harga</th>
@@ -322,7 +339,7 @@ async function tabOrder(panel, ctx) {
           <tbody>${baris.map((b, k) => barisTabel(b, k + 1)).join('')}</tbody>
           <tfoot><tr>
             <td class="k-nomor"></td>
-            <td colspan="6">Total · ${nOrder} order · ${baris.length} barang</td>
+            <td colspan="7">Total · ${nOrder} order · ${baris.length} barang</td>
             <td class="ang">${esc(angka(total))}</td>
             <td></td>
             <td class="k-cek"></td>
@@ -362,6 +379,7 @@ async function tabOrder(panel, ctx) {
             ? `<span class="catatan-order" title="Catatan order: ${esc(p.catatan)}">${ikon('catatan', 13)}<span>${esc(p.catatan)}</span></span>`
             : ''}</td>
         <td>${esc(i.barang_nama)}</td>
+        <td class="k-tempo">${esc(teksTempo(i))}</td>
         <td class="ang">${esc(angka(i.qty))} ${esc(i.satuan)}</td>
         <td class="ang">${esc(angka(i.harga))}${
           i.harga_per_kg ? `<span class="ket">${esc(angka(i.harga_per_kg))}/kg</span>` : ''}</td>
@@ -522,7 +540,7 @@ async function tabOrder(panel, ctx) {
       </div>
       <div class="riwayat-isi detail-isi">
         <table>${item.map((i) => `<tr><td>${esc(i.barang_nama)}
-            <div class="ket">${esc(rincianItem(i))}</div>
+            <div class="ket">${esc(rincianItem(i))}${tempoItem(i) ? ` · tempo ${esc(teksTempo(i))}` : ''}</div>
             <div class="ket ket-nota${i.nota_dibuat ? ' sudah' : ''}">${esc(keteranganNota(i))}</div></td>
             <td>${esc(rupiah(i.subtotal))}</td></tr>`).join('')}</table>
         ${p.catatan ? `<div class="ket catatan-cap">${ikon('catatan', 14)}${esc(p.catatan)}</div>` : ''}
@@ -612,10 +630,11 @@ async function tabOrder(panel, ctx) {
     const des = (v) => (v === null || v === undefined ? '' : String(v).replace('.', ','));
     const sel1 = (v) => String(v ?? '').replace(/[\t\r\n]+/g, ' ');
     const teks = [
-      ['Tanggal', 'Sales', 'Toko', 'Barang', 'Jumlah', 'Satuan', 'Harga', 'Jumlah Harga', 'No Order',
+      ['Tanggal', 'Sales', 'Toko', 'Barang', 'Tempo', 'Jumlah', 'Satuan', 'Harga', 'Jumlah Harga', 'No Order',
        'Status Nota', 'No Nota'],
       ...tampil.map(({ p, i }) => [
-        tglSel(p.tanggal), namaSales[p.sales_id] || '', p.toko_nama, i.barang_nama, des(i.qty), i.satuan,
+        tglSel(p.tanggal), namaSales[p.sales_id] || '', p.toko_nama, i.barang_nama, teksTempo(i, ''),
+        des(i.qty), i.satuan,
         des(i.harga), des(i.subtotal), p.no_pesanan,
         i.nota_dibuat ? 'Sudah' : 'Pending', i.no_nota ?? '',
       ]),
@@ -634,6 +653,7 @@ async function tabOrder(panel, ctx) {
   inD1.addEventListener('change', () => segarkan());
   inD2.addEventListener('change', () => segarkan());
   sel.addEventListener('change', () => segarkan());
+  selTempo.addEventListener('change', () => { tetapTampil = new Set(); gambarTabel(); });
   inCari.addEventListener('input', () => gambarTabel());
   panel.querySelector('#f-status').addEventListener('click', (e) => {
     const b = e.target.closest('[data-status]');
@@ -673,10 +693,12 @@ async function tabOrder(panel, ctx) {
       };
       if (sel.value) q.sales_id = 'eq.' + sel.value;
       const idTampil = new Set(tampil.map(({ i }) => String(i.id)));
+      const tempoPer = new Map(tampil.map(({ i }) => [String(i.id), teksTempo(i, '')]));
+      const tp = (r) => tempoPer.get(String(r.item_id)) || '';
       const baris = (await db.pilih('v_ekspor', q)).filter((r) => idTampil.has(String(r.item_id)));
       if (!baris.length) { pesan('Tidak ada data untuk diunduh.', 'salah'); return; }
 
-      const kolom = ['Tanggal', 'No Order', 'Sales', 'Toko', 'Barang', 'Satuan',
+      const kolom = ['Tanggal', 'No Order', 'Sales', 'Toko', 'Barang', 'Tempo', 'Satuan',
                      'Jumlah', 'Harga Satuan', 'Harga per Kg', 'Total Kg',
                      'Subtotal', 'Catatan', 'Status Nota', 'No Nota'];
       const st = (r) => (r.nota_dibuat ? 'Sudah' : 'Pending');
@@ -686,7 +708,7 @@ async function tabOrder(panel, ctx) {
         // angka dikirim sebagai number -> desimal titik, dibaca sebagai angka
         const n = (v) => (v === null || v === undefined || v === '' ? '' : Number(v));
         isi = keCSVSheet(kolom, baris.map((r) => [
-          r.tanggal, r.no_pesanan, r.sales, r.toko, r.barang, r.satuan,
+          r.tanggal, r.no_pesanan, r.sales, r.toko, r.barang, tp(r), r.satuan,
           n(r.jumlah), n(r.harga), n(r.harga_per_kg), n(r.total_kg),
           n(r.subtotal), r.catatan || '', st(r), r.no_nota || '',
         ]));
@@ -694,7 +716,7 @@ async function tabOrder(panel, ctx) {
         // Excel Indonesia: desimal pakai koma
         const des = (v) => (v === null || v === undefined ? '' : String(v).replace('.', ','));
         isi = keCSV(kolom, baris.map((r) => [
-          r.tanggal, r.no_pesanan, r.sales, r.toko, r.barang, r.satuan,
+          r.tanggal, r.no_pesanan, r.sales, r.toko, r.barang, tp(r), r.satuan,
           des(r.jumlah), des(r.harga), des(r.harga_per_kg), des(r.total_kg),
           des(r.subtotal), r.catatan || '', st(r), r.no_nota || '',
         ]));
@@ -735,6 +757,21 @@ async function tabOrder(panel, ctx) {
     if (p) bukaDetail(p);
     else pesan('Order itu tidak ditemukan — mungkin sudah dihapus.', 'salah');
   }
+}
+
+/* ============================================================
+   TEMPO PEMBAYARAN — menempel di kelompok barang (Barang besi 90
+   hari, Fast moving 30 hari). Dibaca dari barang master saat ini.
+   ============================================================ */
+function tempoItem(i) {
+  const b = Array.isArray(i.barang) ? i.barang[0] : i.barang;
+  const k = b && (Array.isArray(b.kelompok_barang) ? b.kelompok_barang[0] : b.kelompok_barang);
+  return k?.tempo ? k : null;
+}
+/** "90 hari" — atau tanda strip bila barangnya belum masuk kelompok. */
+function teksTempo(i, kosong = '—') {
+  const k = tempoItem(i);
+  return k ? `${k.tempo_hari} hari` : kosong;
 }
 
 /* ============================================================
@@ -997,12 +1034,13 @@ export function barisKeBarang(k) {
 }
 
 async function tabBarang(panel, ctx) {
+  await muatKelompok().catch(() => {});
   await tabMaster(panel, ctx, {
     tabel: 'barang',
     judul: 'Barang',
     kolomImpor: 'Kode · Nama barang · Satuan · Harga jual · HPP',
     contoh: 'R041-003\tAFUR BCP STENLIS\tPCS\t25.000\t17.500',
-    select: 'id,kode,nama,satuan,harga_rekomendasi,berat_kg,isi_koli,kategori,kategori_id,sumber,aktif,barang_biaya(hpp)',
+    select: 'id,kode,nama,satuan,harga_rekomendasi,berat_kg,isi_koli,kategori,kategori_id,kelompok_id,perusahaan,sumber,aktif,barang_biaya(hpp)',
     rpcImpor: 'impor_barang',
     kolomSheet: [
       { f: 'kode', label: 'Kode', lebar: 120 },
@@ -1012,7 +1050,8 @@ async function tabBarang(panel, ctx) {
       { f: 'hpp', label: 'HPP', lebar: 130, tipe: 'hpp' },
       { f: 'berat_kg', label: 'Berat/sat (kg)', lebar: 130, tipe: 'angka' },
       { f: 'isi_koli', label: 'Isi 1 koli', lebar: 110, tipe: 'angka' },
-      { f: 'kategori_id', label: 'Kategori', lebar: 150, tipe: 'kategori' },
+      { f: 'kelompok_id', label: 'Kelompok', lebar: 190, tipe: 'kelompok' },
+      { f: 'perusahaan', label: 'Perusahaan', lebar: 110, tipe: 'perusahaan' },
       { f: 'aktif', label: 'Tampil', lebar: 70, tipe: 'aktif' },
     ],
     keImpor: barisKeBarang,
@@ -1047,6 +1086,9 @@ async function tabBarang(panel, ctx) {
           `HPP ${rupiah(hpp)}${berat ? '/kg' : ''}` + (m === null ? '' : ` (margin ${m}%)`)
         );
       }
+      const kel = kelompokDari(r.kelompok_id);
+      bagian.push(kel ? `${kel.nama} · ${kel.tempo_hari} hari` : 'belum ada kelompok');
+      if (r.perusahaan) bagian.push(r.perusahaan);
       if (r.kategori) bagian.push(r.kategori);
       return bagian.join(' · ');
     },
@@ -1072,8 +1114,17 @@ async function tabBarang(panel, ctx) {
         const rek = Number(r.harga_rekomendasi) || 0;
         return hpp !== null && rek > 0 ? esc(`${Math.round(((rek - hpp) / rek) * 100)}%`) : '—';
       } },
-      { judul: 'Kategori', isi: (r) => esc(r.kategori || '—') },
+      { judul: 'Kelompok', isi: (r) => {
+        const kel = kelompokDari(r.kelompok_id);
+        return kel ? `${esc(kel.nama)}<span class="ket">${esc(kel.kategori)} · ${esc(kel.tempo_hari)} hari</span>` : '—';
+      } },
+      { judul: 'PT', isi: (r) => esc(r.perusahaan || '—') },
     ],
+    saringTambahan: {
+      label: 'Belum ada kelompok',
+      cocok: (r) => !r.kelompok_id && r.sumber !== 'ditolak',
+    },
+    tombolKategori: { label: 'Kelompok', buka: kelolaKelompok },
 
     // Tambah & Ubah barang memakai form universal yang sama.
     sheetTambah: (c, selesai) => bukaFormBarang(null, c, selesai),
@@ -1094,6 +1145,17 @@ function bukaFormBarang(r, ctx, selesai) {
 
   const tirai = lembar(ubah ? 'Ubah barang' : 'Tambah barang', `
     <div id="fb-slot"></div>
+    <div class="dua-kolom">
+      <div class="baris">
+        <label class="label" for="fb-kelompok">Kelompok</label>
+        <select id="fb-kelompok">${opsiKelompok(ubah ? r.kelompok_id : null)}</select>
+      </div>
+      <div class="baris">
+        <label class="label" for="fb-pt">Perusahaan</label>
+        <select id="fb-pt">${opsiPerusahaan(ubah ? r.perusahaan : null)}</select>
+      </div>
+    </div>
+    <div class="bantuan" id="fb-tempo"></div>
     ${ubah ? `
     <label style="display:flex;gap:11px;align-items:center;margin:14px 0;font-size:15px">
       <input type="checkbox" id="fb-aktif" ${r.aktif ? 'checked' : ''}
@@ -1142,6 +1204,17 @@ function bukaFormBarang(r, ctx, selesai) {
     } : null,
   });
   tirai.querySelector('#fb-slot').appendChild(form.el);
+  const selKel = tirai.querySelector('#fb-kelompok');
+  const selPt = tirai.querySelector('#fb-pt');
+  const tulisTempo = () => {
+    const k = kelompokDari(selKel.value);
+    tirai.querySelector('#fb-tempo').textContent = k
+      ? `Kategori ${k.kategori} · tempo ${k.tempo_hari} hari (${k.tempo.toLowerCase()})`
+      : 'Tanpa kelompok: tempo pembayaran tidak tampil di rekap order.';
+  };
+  selKel.addEventListener('change', tulisTempo);
+  tulisTempo();
+  const kelBaru = () => ({ kelompok_id: selKel.value ? Number(selKel.value) : null, perusahaan: selPt.value || null });
 
   tirai.addEventListener('click', async (e) => {
     if (e.target.closest('#fb-kembali')) {
@@ -1216,6 +1289,7 @@ function bukaFormBarang(r, ctx, selesai) {
           berat_kg: d.berat_kg,
           isi_koli: d.isi_koli,
           kategori: d.kategori,
+          ...kelBaru(),
           aktif: tirai.querySelector('#fb-aktif').checked,
           sumber: 'master',
         });
@@ -1226,6 +1300,14 @@ function bukaFormBarang(r, ctx, selesai) {
       } else {
         // impor_barang menangani 1 maupun banyak baris, sekaligus HPP-nya
         const n = await db.rpc('impor_barang', { p_baris: baris });
+        // impor_barang tidak mengenal kelompok/perusahaan: pasang sesudahnya.
+        const k = kelBaru();
+        if (k.kelompok_id || k.perusahaan) {
+          for (const d of baris) {
+            const ada = await db.pilih('barang', { select: 'id', nama: 'ilike.' + d.nama, limit: 1 });
+            if (ada[0]) await db.ubah('barang', ada[0].id, k);
+          }
+        }
         pesan(n > 1 ? `${n} barang tersimpan.` : 'Barang ditambahkan.', 'ok');
       }
 
@@ -1484,6 +1566,12 @@ function selSheet(k, r, kat) {
       .join('');
     return `<select data-f="${esc(k.f)}"><option value="">—</option>${opsi}</select>`;
   }
+  if (k.tipe === 'kelompok') {
+    return `<select data-f="${esc(k.f)}">${opsiKelompok(v)}</select>`;
+  }
+  if (k.tipe === 'perusahaan') {
+    return `<select data-f="${esc(k.f)}">${opsiPerusahaan(v)}</select>`;
+  }
   if (k.tipe === 'angka' || k.tipe === 'hpp') {
     return `<input type="text" inputmode="decimal" data-f="${esc(k.f)}"
             value="${v === null || v === undefined ? '' : esc(String(v))}">`;
@@ -1495,12 +1583,133 @@ function selSheet(k, r, kat) {
 /** Baca satu sel kembali ke nilai yang siap dikirim. */
 function bacaSel(k, el) {
   if (k.tipe === 'aktif') return el.checked;
-  if (k.tipe === 'kategori') return el.value ? Number(el.value) : null;
+  if (k.tipe === 'kategori' || k.tipe === 'kelompok') return el.value ? Number(el.value) : null;
+  if (k.tipe === 'perusahaan') return el.value || null;
   if (k.tipe === 'angka' || k.tipe === 'hpp') {
     const t = el.value.trim();
     return t === '' ? null : keAngka(t);
   }
   return el.value.trim() || null;
+}
+
+/* ============================================================
+   KELOMPOK BARANG + PERUSAHAAN
+   Kelompok membawa kategori & tempo pembayaran (Barang besi 90 hari,
+   Fast moving 30 hari). Perusahaan = pemilik barang (RVS/HIM/KIM/KDR).
+   ============================================================ */
+const PERUSAHAAN = ['RVS', 'HIM', 'KIM', 'KDR'];
+const KATEGORI_BARANG = ['Building Material', 'Hardware', 'Tools', 'Plumbing & Fitting', 'Sanitary'];
+const TEMPO = { 'BARANG BESI': 90, 'FAST MOVING': 30 };
+let daftarKelompok = [];
+
+async function muatKelompok() {
+  daftarKelompok = await db.pilih('kelompok_barang', {
+    select: 'id,nama,kategori,tempo,tempo_hari', order: 'nama.asc', limit: 1000,
+  });
+  return daftarKelompok;
+}
+const kelompokDari = (id) => daftarKelompok.find((k) => String(k.id) === String(id)) || null;
+
+function opsiKelompok(terpilih) {
+  return '<option value="">— belum ada kelompok —</option>' + daftarKelompok.map((k) =>
+    `<option value="${esc(k.id)}"${String(k.id) === String(terpilih) ? ' selected' : ''}>`
+    + `${esc(k.nama)} · ${esc(k.tempo_hari)} hr</option>`).join('');
+}
+function opsiPerusahaan(terpilih) {
+  const daftar = PERUSAHAAN.includes(terpilih) || !terpilih ? PERUSAHAAN : [...PERUSAHAAN, terpilih];
+  return '<option value="">—</option>' + daftar.map((p) =>
+    `<option value="${esc(p)}"${p === terpilih ? ' selected' : ''}>${esc(p)}</option>`).join('');
+}
+
+/** Lembar kelola kelompok: tambah, ubah nama/kategori/tempo, hapus. */
+async function kelolaKelompok(sesudah) {
+  const opsi = (daftar, v) => daftar.map((x) =>
+    `<option value="${esc(x)}"${x === v ? ' selected' : ''}>${esc(TEMPO[x] ? `${TEMPO[x]} hari` : x)}</option>`).join('');
+  const tirai = lembar('Kelompok barang', `
+    <div class="bantuan">Tempo ikut kelompok: Barang besi ${TEMPO['BARANG BESI']} hari,
+      Fast moving ${TEMPO['FAST MOVING']} hari. Ubah tempo satu kelompok = semua barangnya ikut.</div>
+    <div class="item">
+      <label class="label" for="kl-baru">Tambah kelompok baru</label>
+      <input type="text" id="kl-baru" placeholder="mis. SEMEN" autocomplete="off" autocapitalize="characters">
+      <div class="dua-kolom kl-dua" style="margin-top:10px">
+        <select id="kl-kat" aria-label="Kategori">${opsi(KATEGORI_BARANG, KATEGORI_BARANG[0])}</select>
+        <select id="kl-tempo" aria-label="Tempo">${opsi(Object.keys(TEMPO), 'BARANG BESI')}</select>
+      </div>
+      <button type="button" class="btn kecil" id="kl-tambah" style="margin-top:10px">Tambah</button>
+    </div>
+    <input type="text" id="kl-cari" placeholder="Cari kelompok…" autocomplete="off" style="margin-top:14px">
+    <div id="kl-daftar" style="margin-top:10px"></div>`);
+  const daftarEl = tirai.querySelector('#kl-daftar');
+  const cari = tirai.querySelector('#kl-cari');
+
+  function gambar() {
+    const q = cari.value.trim().toUpperCase();
+    const rows = daftarKelompok.filter((k) => !q || k.nama.includes(q));
+    daftarEl.innerHTML = rows.length ? rows.map((k) => `
+      <div class="item" data-id="${esc(k.id)}">
+        <input type="text" class="kl-nama" value="${esc(k.nama)}" aria-label="Nama kelompok">
+        <div class="dua-kolom kl-dua" style="margin-top:10px">
+          <select class="kl-kat" aria-label="Kategori">${opsi(KATEGORI_BARANG.includes(k.kategori) ? KATEGORI_BARANG : [...KATEGORI_BARANG, k.kategori], k.kategori)}</select>
+          <select class="kl-tempo" aria-label="Tempo">${opsi(Object.keys(TEMPO), k.tempo)}</select>
+        </div>
+        <div class="tombol-baris" style="margin-top:10px">
+          <button type="button" class="btn abu kecil" data-simpan="${esc(k.id)}">Simpan</button>
+          <button type="button" class="btn abu kecil" data-hapus="${esc(k.id)}"
+                  style="color:var(--sinyal);border-color:var(--sinyal)">Hapus</button>
+        </div>
+      </div>`).join('') : '<div class="bantuan">Tidak ada kelompok yang cocok.</div>';
+  }
+  gambar();
+  cari.addEventListener('input', gambar);
+
+  tirai.addEventListener('click', async (e) => {
+    const tTambah = e.target.closest('#kl-tambah');
+    const tSimpan = e.target.closest('[data-simpan]');
+    const tHapus = e.target.closest('[data-hapus]');
+    if (!tTambah && !tSimpan && !tHapus) return;
+    const tombol = tTambah || tSimpan || tHapus;
+    try {
+      if (tTambah) {
+        const nama = tirai.querySelector('#kl-baru').value.trim().toUpperCase();
+        if (!nama) { pesan('Nama kelompok masih kosong.', 'salah'); return; }
+        const tempo = tirai.querySelector('#kl-tempo').value;
+        tombol.disabled = true;
+        await db.sisip('kelompok_barang', {
+          nama, kategori: tirai.querySelector('#kl-kat').value, tempo, tempo_hari: TEMPO[tempo],
+        });
+        tirai.querySelector('#kl-baru').value = '';
+        tombol.disabled = false;
+        pesan('Kelompok ditambahkan.', 'ok');
+      }
+      if (tSimpan) {
+        const kotak = tSimpan.closest('.item');
+        const nama = kotak.querySelector('.kl-nama').value.trim().toUpperCase();
+        if (!nama) { pesan('Nama kelompok masih kosong.', 'salah'); return; }
+        const tempo = kotak.querySelector('.kl-tempo').value;
+        tombol.disabled = true;
+        await db.ubah('kelompok_barang', tSimpan.dataset.simpan, {
+          nama, kategori: kotak.querySelector('.kl-kat').value, tempo, tempo_hari: TEMPO[tempo],
+        });
+        pesan('Kelompok disimpan.', 'ok');
+      }
+      if (tHapus) {
+        const nama = tHapus.closest('.item').querySelector('.kl-nama').value.trim();
+        const ya = await tanya('Hapus kelompok ini?',
+          `"${nama}" akan hilang. Barangnya TIDAK ikut terhapus — hanya jadi tanpa kelompok `
+          + '(tanpa kategori & tempo).', 'Ya, hapus');
+        if (!ya) return;
+        tombol.disabled = true;
+        await db.hapus('kelompok_barang', tHapus.dataset.hapus);
+        pesan('Kelompok terhapus.', 'ok');
+      }
+      await muatKelompok();
+      gambar();
+      await sesudah?.();
+    } catch (err) {
+      tombol.disabled = false;
+      pesan(/duplicate|unique/i.test(err.message) ? 'Nama kelompok itu sudah ada.' : err.message, 'salah');
+    }
+  });
 }
 
 /* ============================================================
@@ -1624,7 +1833,8 @@ async function tabMaster(panel, ctx, o) {
   // 'sales'). Sebelumnya hanya ditandai lencana dan tercampur di antara
   // ratusan baris lain — tidak ada cara melihatnya saja, padahal justru
   // itulah yang perlu diperiksa admin.
-  let hanyaUsulan = false;
+  // 'semua' | 'usulan' | 'tambahan' (penyaring khusus tabel, mis. barang tanpa kelompok)
+  let mode = 'semua';
 
   // Kategori dimuat sekali per tab, bukan tiap kali dialog dibuka:
   // daftarnya pendek dan jarang berubah.
@@ -1641,11 +1851,12 @@ async function tabMaster(panel, ctx, o) {
       <div class="saring" id="saring-sumber" role="group" aria-label="Penyaring daftar">
         <button type="button" data-u="semua" class="aktif" aria-pressed="true">Semua</button>
         <button type="button" data-u="usulan" id="btn-usulan" aria-pressed="false">Usulan sales</button>
+        ${o.saringTambahan ? `<button type="button" data-u="tambahan" id="btn-tambahan" aria-pressed="false">${esc(o.saringTambahan.label)}</button>` : ''}
       </div>
       <button type="button" class="btn" id="btn-tambah" style="margin-top:10px">+ Tambah</button>
       <div class="tombol-baris alat" style="margin-top:10px">
         <button type="button" class="btn abu kecil" id="btn-impor">${ikon('tempel', 17)}Tempel dari Excel</button>
-        <button type="button" class="btn abu kecil" id="btn-kategori">Kategori</button>
+        <button type="button" class="btn abu kecil" id="btn-kategori">${esc(o.tombolKategori?.label || 'Kategori')}</button>
         <button type="button" class="btn abu kecil" id="btn-massal">Edit massal</button>
       </div>
       <div class="bantuan" id="hitung"></div>
@@ -1663,7 +1874,9 @@ async function tabMaster(panel, ctx, o) {
 
   /** Baris yang lolos penyaring usulan — dipakai daftar maupun edit massal. */
   function tersaring() {
-    return hanyaUsulan ? data.filter((r) => r.sumber === 'sales') : data;
+    if (mode === 'usulan') return data.filter((r) => r.sumber === 'sales');
+    if (mode === 'tambahan' && o.saringTambahan) return data.filter(o.saringTambahan.cocok);
+    return data;
   }
 
   function gambarList() {
@@ -1680,20 +1893,30 @@ async function tabMaster(panel, ctx, o) {
 
     const elHitung = panel.querySelector('#hitung');
     if (elHitung) {
-      elHitung.textContent = hanyaUsulan
+      elHitung.textContent = mode === 'usulan'
         ? `Menampilkan ${jmlUsulan} usulan dari sales saja — dari ${data.length} ${o.judul.toLowerCase()}.`
-        : `${data.length} ${o.judul.toLowerCase()} · ${jmlUsulan} usulan dari sales`;
+        : mode === 'tambahan'
+          ? `Menampilkan ${dasar.length} ${o.saringTambahan.label.toLowerCase()} — dari ${data.length} ${o.judul.toLowerCase()}.`
+          : `${data.length} ${o.judul.toLowerCase()} · ${jmlUsulan} usulan dari sales`;
     }
 
     const elUsulan = panel.querySelector('#btn-usulan');
     const elSemua = panel.querySelector('[data-u="semua"]');
     if (elUsulan) {
       elUsulan.textContent = `Usulan sales (${jmlUsulan})`;
-      elUsulan.classList.toggle('aktif', hanyaUsulan);
-      elUsulan.setAttribute('aria-pressed', hanyaUsulan ? 'true' : 'false');
-      elUsulan.disabled = jmlUsulan === 0 && !hanyaUsulan;
-      elSemua.classList.toggle('aktif', !hanyaUsulan);
-      elSemua.setAttribute('aria-pressed', hanyaUsulan ? 'false' : 'true');
+      elUsulan.classList.toggle('aktif', mode === 'usulan');
+      elUsulan.setAttribute('aria-pressed', String(mode === 'usulan'));
+      elUsulan.disabled = jmlUsulan === 0 && mode !== 'usulan';
+      elSemua.classList.toggle('aktif', mode === 'semua');
+      elSemua.setAttribute('aria-pressed', String(mode === 'semua'));
+      const elTambahan = panel.querySelector('#btn-tambahan');
+      if (elTambahan) {
+        const n = data.filter(o.saringTambahan.cocok).length;
+        elTambahan.textContent = `${o.saringTambahan.label} (${n})`;
+        elTambahan.classList.toggle('aktif', mode === 'tambahan');
+        elTambahan.setAttribute('aria-pressed', String(mode === 'tambahan'));
+        elTambahan.disabled = n === 0 && mode !== 'tambahan';
+      }
     }
 
     if (!cocok.length) {
@@ -1931,9 +2154,8 @@ async function tabMaster(panel, ctx, o) {
   panel.querySelector('#saring-sumber').addEventListener('click', (e) => {
     const b = e.target.closest('[data-u]');
     if (!b) return;
-    const mau = b.dataset.u === 'usulan';
-    if (mau === hanyaUsulan) return;
-    hanyaUsulan = mau;
+    if (b.dataset.u === mode) return;
+    mode = b.dataset.u;
     gambarList();
   });
 
@@ -1946,6 +2168,10 @@ async function tabMaster(panel, ctx, o) {
   });
 
   panel.querySelector('#btn-kategori').addEventListener('click', () => {
+    if (o.tombolKategori) {
+      o.tombolKategori.buka(async () => { await muat(); }).catch((e) => pesan(e.message, 'salah'));
+      return;
+    }
     kelolaKategori(o.tabel, o.judul, async () => {
       await muatKategori();
     }).catch((e) => pesan(e.message, 'salah'));
