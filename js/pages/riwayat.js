@@ -14,9 +14,9 @@ import {
 // toko(kota) ikut ditarik: ada nama toko yang sama persis di kota berbeda,
 // dan tanpa kotanya dua order berbeda terbaca identik.
 const PILIH_KOLOM =
-  'id,no_pesanan,tanggal,toko_id,toko_nama,catatan,total,toko(kota),' +
+  'id,no_pesanan,tanggal,toko_id,toko_nama,catatan,total,bayar_cash,toko(kota),' +
   'pesanan_item(urut,barang_id,barang_nama,satuan,qty,harga,harga_per_kg,berat_kg,subtotal,' +
-  'nota_dibuat,no_nota),' +
+  'nota_dibuat,no_nota,ditambah_pada),' +
   'pesanan_catatan(id,teks,dibuat_pada,dibaca_pada)';
 
 // Dibuka di HARIAN (pemilik): setiap hari baru riwayat mulai kosong lagi;
@@ -271,12 +271,12 @@ function kartuOrder(p) {
       <span class="kiri">
         <span class="toko">${esc(p.toko_nama)}</span>
         ${p.toko?.kota ? `<span class="kota">${esc(p.toko.kota)}</span>` : ''}
-        ${p.toko?.kota ? `<span class="kota">${esc(p.toko.kota)}</span>` : ''}
         <span class="meta">
           <span>${esc(tanggalPendek(p.tanggal))}</span>
           <span class="kode">${esc(p.no_pesanan)}</span>
           <span>${item.length} barang</span>
           <span class="tanda nota-${st.kunci}">${esc(st.teks)}</span>
+          ${p.bayar_cash ? '<span class="tanda cash">Cash</span>' : ''}
         </span>
       </span>
       <span class="uang">${esc(rupiah(p.total))}</span>
@@ -284,7 +284,7 @@ function kartuOrder(p) {
 
     <div class="riwayat-isi" id="isi-${esc(p.id)}" hidden>
       <table>${item.map((i) => `<tr>
-        <td>${esc(i.barang_nama)}<div class="ket">${esc(rincianItem(i))}</div>
+        <td>${esc(i.barang_nama)}<div class="ket">${esc(rincianItem(i))}${i.ditambah_pada ? ' · barang tambahan' : ''}</div>
           <div class="ket ket-nota${i.nota_dibuat ? ' sudah' : ''}">${esc(keteranganNota(i))}</div></td>
         <td>${esc(rupiah(i.subtotal))}</td></tr>`).join('')}</table>
 
@@ -299,7 +299,9 @@ function kartuOrder(p) {
       <button type="button" class="btn abu kecil" data-catatan="${esc(p.id)}"
               style="width:100%;margin-top:14px">+ Tambah catatan</button>
       <div class="bantuan">Order yang sudah tersimpan hanya bisa diubah admin.
-        Kalau ada yang salah, tulis di catatan — admin akan melihatnya.</div>
+        Kalau ada yang salah, tulis di catatan — admin akan melihatnya.
+        Lupa barang? Buat order ke toko yang sama hari ini, lalu pilih
+        <b>Tambah ke order itu</b> (selama notanya belum dibuat).</div>
     </div>
   </div>`;
 }

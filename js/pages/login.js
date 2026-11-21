@@ -3,13 +3,27 @@
 import * as db from '../db.js';
 import { DARI_LAYAR, hapusSambungan } from '../config.js';
 import { ikon } from '../ikon.js';
-import { pesan, tanya } from '../util.js';
+import { esc, pesan, tanya } from '../util.js';
 import * as pasangApp from '../pasang.js';
 
+// "Ingat akun ini di HP ini" (pemilik, 21 Nov 2026): HP pribadi sales cukup
+// memasukkan PIN setiap kali sesi habis. Hanya kalau DICENTANG sendiri —
+// bawaannya username tetap kosong, jadi HP/komputer bersama tidak berubah.
+// Yang diingat hanya username & nama; PIN tidak pernah disimpan.
+const KUNCI_INGAT = 'order-akun-ingat';
+function bacaIngat() {
+  try {
+    const v = JSON.parse(localStorage.getItem(KUNCI_INGAT) || 'null');
+    return v && typeof v.username === 'string' && v.username ? v : null;
+  } catch {
+    return null;
+  }
+}
+
 export async function gambar(app, { setelahMasuk }) {
-  // Username SELALU kosong (permintaan pemilik): tidak ada yang mengingat
-  // akun terakhir di HP/komputer bersama. Sisa ingatan versi lama dibuang.
+  // Sisa ingatan username versi lama (tanpa persetujuan pengguna) dibuang.
   try { localStorage.removeItem('order-username'); } catch { /* abaikan */ }
+  const ingat = bacaIngat();
 
   // Tanpa ini, pengguna yang tiba-tiba terlempar ke layar masuk akan mengira
   // aplikasinya rusak atau PIN-nya berubah.
@@ -50,12 +64,19 @@ export async function gambar(app, { setelahMasuk }) {
       </div>` : ''}
 
       <form id="form-masuk" autocomplete="on" novalidate>
+        ${ingat ? `
+        <div class="akun-ingat">
+          <span class="label">Masuk sebagai</span>
+          <b>${esc(ingat.nama || ingat.username)}</b>
+          <button type="button" id="ganti-akun" class="tautan-kecil">Bukan Anda? Ganti akun</button>
+        </div>
+        <input type="hidden" id="u" name="username" value="${esc(ingat.username)}">` : `
         <div class="baris">
           <label class="label" for="u">Username</label>
           <input type="text" id="u" name="username" value=""
                  autocapitalize="none" autocorrect="off" spellcheck="false"
                  autocomplete="off" enterkeyhint="next" inputmode="text">
-        </div>
+        </div>`}
 
         <div class="baris">
           <label class="label" for="p">PIN (6 angka)</label>
@@ -67,6 +88,11 @@ export async function gambar(app, { setelahMasuk }) {
               <input type="checkbox" id="lihat" style="width:20px;height:20px;min-height:20px;padding:0">
               Tampilkan PIN
             </label>
+            ${ingat ? '' : `
+            <label style="display:flex;align-items:flex-start;gap:8px;font-size:14px;color:var(--teks-2);cursor:pointer;margin-top:10px">
+              <input type="checkbox" id="ingat" style="width:20px;height:20px;min-height:20px;padding:0;flex:0 0 auto;margin-top:1px">
+              <span>Ingat akun ini di HP ini<br><small>Untuk HP pribadi: berikutnya cukup masukkan PIN.</small></span>
+            </label>`}
           </div>
         </div>
 
@@ -115,6 +141,11 @@ export async function gambar(app, { setelahMasuk }) {
     btn.textContent = 'Sedang masuk…';
     try {
       const pr = await db.masuk(un, pin);
+      try {
+        if (ingat || app.querySelector('#ingat')?.checked) {
+          localStorage.setItem(KUNCI_INGAT, JSON.stringify({ username: un, nama: pr.nama }));
+        }
+      } catch { /* penyimpanan HP penuh/diblokir: tetap masuk, hanya tidak diingat */ }
       pesan('Selamat datang, ' + pr.nama, 'ok');
       await setelahMasuk(pr);
     } catch (err) {
@@ -161,5 +192,10 @@ export async function gambar(app, { setelahMasuk }) {
     location.reload();
   });
 
-  u.focus();
+  app.querySelector('#ganti-akun')?.addEventListener('click', () => {
+    try { localStorage.removeItem(KUNCI_INGAT); } catch { /* abaikan */ }
+    gambar(app, { setelahMasuk });
+  });
+
+  (ingat ? p : u).focus();
 }

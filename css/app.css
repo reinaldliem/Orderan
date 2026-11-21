@@ -1511,3 +1511,64 @@ table.dasbor-tabel .kode { margin-left: 6px; }
 /* Kolom centang pilih di edit massal: sempit dan rata tengah. */
 table.sheet th.sm-pilih,
 table.sheet td.sm-pilih { text-align: center; padding: 6px 8px; }
+
+/* ============================================================
+   EFISIENSI SALES (21 Nov 2026)
+   CASH sekali ketuk · tambah ke order tadi · harga terakhir per toko ·
+   tanda di rekap admin · masuk cukup PIN di HP pribadi
+   ============================================================ */
+.tombol-cash {
+  display: flex; align-items: center; gap: 12px; width: 100%;
+  min-height: 52px; padding: 10px 12px;
+  background: none; border: 2px solid var(--garis-kuat); border-radius: 0;
+  font: inherit; color: var(--tinta); text-align: left; cursor: pointer;
+}
+.tombol-cash .kotak-cash {
+  flex: 0 0 auto; width: 24px; height: 24px; display: grid; place-items: center;
+  border: 2px solid var(--garis-kuat); color: transparent;
+}
+.tombol-cash .teks-cash { display: grid; gap: 2px; min-width: 0; }
+.tombol-cash b { font-size: 15px; letter-spacing: .12em; }
+.tombol-cash small { font-size: 12.5px; color: var(--tinta-2); }
+.tombol-cash.aktif { background: var(--tinta); border-color: var(--tinta); color: var(--blok); }
+.tombol-cash.aktif .kotak-cash { border-color: var(--blok); color: var(--blok); }
+.tombol-cash.aktif small { color: var(--kraft-pudar); }
+.tombol-cash:focus-visible { outline: 3px solid var(--tinta); outline-offset: 2px; }
+
+/* "Hari ini sudah ada order ke toko ini" di bawah pilihan toko */
+.order-tadi {
+  margin-top: 12px; padding: 12px;
+  border: 2px solid var(--tunggu); background: var(--tunggu-muda);
+}
+.order-tadi-ket { font-size: 14px; line-height: 1.4; overflow-wrap: anywhere; }
+.order-tadi-ket b { white-space: nowrap; }   /* nomor order tidak terpotong */
+.order-tadi .saring { margin-top: 10px; }
+.order-tadi .saring button { background: var(--blok); }
+.order-tadi .saring button.aktif { background: var(--tinta); }
+.order-tadi .bantuan { margin-top: 8px; }
+
+/* "Terakhir ke toko ini: Rp …" — diketuk = harganya dipakai */
+.harga-lalu {
+  display: block; width: 100%; min-height: 40px; padding: 6px 0; margin-top: 2px;
+  background: none; border: 0; border-radius: 0;
+  font: inherit; font-size: 12.5px; line-height: 1.35; color: var(--tinta);
+  text-align: left; text-decoration: underline; text-underline-offset: 3px; cursor: pointer;
+}
+.harga-lalu[hidden] { display: none; }
+
+/* CASH = blok tinta, TAMBAHAN = blok cokelat: bentuk berbeda dari tanda nota */
+.tanda.cash   { background: var(--tinta); border-color: var(--tinta); color: var(--blok); }
+.tanda.tambah { background: var(--tunggu); border-color: var(--tunggu); color: var(--blok); }
+.sheet td.k-tempo.cash { font-weight: 800; letter-spacing: .06em; }
+
+/* layar masuk: akun yang diingat di HP pribadi */
+.akun-ingat {
+  display: grid; gap: 4px; padding: 12px; margin-bottom: 14px;
+  border: 2px solid var(--garis-kuat);
+}
+.akun-ingat b { font-size: 20px; overflow-wrap: anywhere; }
+.tautan-kecil {
+  justify-self: start; min-height: 44px; padding: 0;
+  background: none; border: 0; font: inherit; font-size: 14px;
+  color: var(--tinta-2); text-decoration: underline; cursor: pointer;
+}

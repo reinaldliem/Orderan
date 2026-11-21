@@ -96,6 +96,7 @@ async function tabOrder(panel, ctx) {
         <div class="setengah"><label class="label" for="f-tempo">Tempo</label>
           <select id="f-tempo">
             <option value="">Semua</option>
+            <option value="CASH">Cash</option>
             <option value="BARANG BESI">Barang besi · 90 hari</option>
             <option value="FAST MOVING">Fast moving · 30 hari</option>
             <option value="-">Belum ada tempo</option>
@@ -154,6 +155,8 @@ async function tabOrder(panel, ctx) {
   let pesanan = [];          // hasil tarikan terakhir
   let idBaru = new Set();    // order yang muncul sejak tarikan sebelumnya
   let idLama = null;         // id order pada tarikan sebelumnya (null = belum pernah)
+  let itemBaru = new Set();  // barang TAMBAHAN dari sales yang muncul sejak tarikan sebelumnya
+  let itemLama = null;
   let kunciLama = '';        // saringan pada tarikan sebelumnya
   let tampil = [];           // baris yang sedang terlihat, untuk Salin tabel & unduh
   let status = 'pending';    // saringan status nota: semua | pending | sudah
@@ -166,9 +169,9 @@ async function tabOrder(panel, ctx) {
   // toko(kota) ikut ditarik: ada nama toko yang sama persis di kota
   // berbeda, dan tanpa kotanya dua order berbeda terbaca identik.
   const KOLOM_ORDER =
-    'id,no_pesanan,tanggal,sales_id,toko_id,toko_nama,catatan,total,toko(kota),' +
+    'id,no_pesanan,tanggal,sales_id,toko_id,toko_nama,catatan,total,bayar_cash,toko(kota),' +
     'pesanan_item(id,urut,barang_id,barang_nama,satuan,qty,harga,harga_per_kg,berat_kg,subtotal,' +
-    'nota_dibuat,no_nota,nota_pada,barang(kelompok_barang(tempo,tempo_hari))),' +
+    'nota_dibuat,no_nota,nota_pada,ditambah_pada,barang(kelompok_barang(tempo,tempo_hari))),' +
     'pesanan_catatan(id,teks,dibuat_pada,dibaca_pada)';
 
   async function tarik() {
@@ -206,6 +209,14 @@ async function tabOrder(panel, ctx) {
         ? new Set([...sekarang].filter((id) => !idLama.has(id)))
         : new Set();
       idLama = sekarang;
+      // Hanya baris bertanda TAMBAHAN yang dibandingkan: id baris lain
+      // berganti setiap admin mengubah order, itu bukan kabar baru.
+      const tambahanKini = new Set(pesanan.flatMap((p) => (p.pesanan_item || [])
+        .filter((i) => i.ditambah_pada).map((i) => i.id)));
+      itemBaru = bandingkan && itemLama
+        ? new Set([...tambahanKini].filter((id) => !itemLama.has(id)))
+        : new Set();
+      itemLama = tambahanKini;
       kunciLama = kunci;
       tetapTampil = new Set();
 
@@ -215,10 +226,11 @@ async function tabOrder(panel, ctx) {
       const penuh = pesanan.length >= BATAS_ORDER;
       elInfo.textContent = `Diperbarui ${jam}` + (bandingkan
         ? (idBaru.size ? ` · ${idBaru.size} order baru` : ' · tidak ada order baru')
+          + (itemBaru.size ? ` · ${itemBaru.size} barang tambahan` : '')
         : '') + (penuh
         ? ` · hanya ${BATAS_ORDER.toLocaleString('id-ID')} order terbaru yang tampil, persempit tanggalnya`
         : '');
-      elInfo.classList.toggle('ada-baru', idBaru.size > 0 || penuh);
+      elInfo.classList.toggle('ada-baru', idBaru.size > 0 || itemBaru.size > 0 || penuh);
       gambarTabel();
     } catch (e) {
       pesan(e.message || 'Gagal memuat order.', 'salah');
@@ -229,9 +241,11 @@ async function tabOrder(panel, ctx) {
   }
 
   /** Lolos saringan tempo? '-' = barang yang belum masuk kelompok mana pun. */
-  function lolosTempo(i) {
+  function lolosTempo(p, i) {
     const t = selTempo.value;
     if (!t) return true;
+    if (t === 'CASH') return !!p.bayar_cash;
+    if (p.bayar_cash) return false;   // order CASH tidak ikut tempo barang
     const k = tempoItem(i);
     return t === '-' ? !k : k?.tempo === t;
   }
@@ -265,7 +279,7 @@ async function tabOrder(panel, ctx) {
         String(p.no_pesanan).toLowerCase().includes(q);
       const cocok = (cocokOrder ? item : item.filter((i) =>
         String(i.barang_nama).toLowerCase().includes(q) ||
-        String(i.no_nota ?? '').toLowerCase().includes(q))).filter(lolosTempo);
+        String(i.no_nota ?? '').toLowerCase().includes(q))).filter((i) => lolosTempo(p, i));
       if (cocok.length) adaCocok = true;
       nPending += cocok.filter((i) => !i.nota_dibuat).length;
 
@@ -355,7 +369,7 @@ async function tabOrder(panel, ctx) {
                      'Buat nota baru, lalu tempel nomornya di sini.';
 
   function barisTabel({ p, i, awalOrder }, nomor) {
-    const baru = idBaru.has(p.id);
+    const baru = idBaru.has(p.id) || itemBaru.has(i.id);
     const adaCatatan = (p.pesanan_catatan || []).length > 0;
     const catatanBaru = (p.pesanan_catatan || []).some((c) => !c.dibaca_pada);
     const basi = notaBasi(i);
@@ -363,7 +377,7 @@ async function tabOrder(panel, ctx) {
       .filter(Boolean).join(' ');
     return `
       <tr class="${kelas}" data-pesanan="${esc(p.id)}" data-item="${esc(i.id)}">
-        <td class="k-nomor"${baru ? ' title="Order baru sejak terakhir disegarkan"' : ''}>${baru ? 'BARU' : nomor}</td>
+        <td class="k-nomor"${baru ? ` title="${idBaru.has(p.id) ? 'Order baru' : 'Barang tambahan baru'} sejak terakhir disegarkan"` : ''}>${baru ? 'BARU' : nomor}</td>
         <td>${esc(tglSel(p.tanggal))}</td>
         <td>${esc(namaSales[p.sales_id] || '—')}</td>
         <td class="k-toko">${esc(p.toko_nama)}${
@@ -378,8 +392,9 @@ async function tabOrder(panel, ctx) {
           awalOrder && p.catatan
             ? `<span class="catatan-order" title="Catatan order: ${esc(p.catatan)}">${ikon('catatan', 13)}<span>${esc(p.catatan)}</span></span>`
             : ''}</td>
-        <td>${esc(i.barang_nama)}</td>
-        <td class="k-tempo">${esc(teksTempo(i))}</td>
+        <td>${esc(i.barang_nama)}${i.ditambah_pada
+          ? ` <span class="tanda tambah" title="Ditambahkan sales ${esc(jamTambah(i))}">Tambahan</span>` : ''}</td>
+        <td class="k-tempo${p.bayar_cash ? ' cash' : ''}">${esc(tempoBaris(p, i))}</td>
         <td class="ang">${esc(angka(i.qty))} ${esc(i.satuan)}</td>
         <td class="ang">${esc(angka(i.harga))}${
           i.harga_per_kg ? `<span class="ket">${esc(angka(i.harga_per_kg))}/kg</span>` : ''}</td>
@@ -536,11 +551,13 @@ async function tabOrder(panel, ctx) {
         <div class="toko">${esc(p.toko_nama)}</div>
           ${p.toko?.kota ? `<div class="kota">${esc(p.toko.kota)}</div>` : ''}
         <div class="bantuan" style="margin:4px 0 0">
-          ${esc(tanggalPendek(p.tanggal))} · ${esc(namaSales[p.sales_id] || '—')}</div>
+          ${esc(tanggalPendek(p.tanggal))} · ${esc(namaSales[p.sales_id] || '—')}${
+          p.bayar_cash ? ' · <span class="tanda cash">Cash</span>' : ''}</div>
       </div>
       <div class="riwayat-isi detail-isi">
         <table>${item.map((i) => `<tr><td>${esc(i.barang_nama)}
-            <div class="ket">${esc(rincianItem(i))}${tempoItem(i) ? ` · tempo ${esc(teksTempo(i))}` : ''}</div>
+            <div class="ket">${esc(rincianItem(i))}${p.bayar_cash ? ' · CASH' : tempoItem(i) ? ` · tempo ${esc(teksTempo(i))}` : ''}${
+              i.ditambah_pada ? ` · tambahan sales ${esc(jamTambah(i))}` : ''}</div>
             <div class="ket ket-nota${i.nota_dibuat ? ' sudah' : ''}">${esc(keteranganNota(i))}</div></td>
             <td>${esc(rupiah(i.subtotal))}</td></tr>`).join('')}</table>
         ${p.catatan ? `<div class="ket catatan-cap">${ikon('catatan', 14)}${esc(p.catatan)}</div>` : ''}
@@ -633,7 +650,7 @@ async function tabOrder(panel, ctx) {
       ['Tanggal', 'Sales', 'Toko', 'Barang', 'Tempo', 'Jumlah', 'Satuan', 'Harga', 'Jumlah Harga', 'No Order',
        'Status Nota', 'No Nota'],
       ...tampil.map(({ p, i }) => [
-        tglSel(p.tanggal), namaSales[p.sales_id] || '', p.toko_nama, i.barang_nama, teksTempo(i, ''),
+        tglSel(p.tanggal), namaSales[p.sales_id] || '', p.toko_nama, i.barang_nama, tempoBaris(p, i, ''),
         des(i.qty), i.satuan,
         des(i.harga), des(i.subtotal), p.no_pesanan,
         i.nota_dibuat ? 'Sudah' : 'Pending', i.no_nota ?? '',
@@ -693,7 +710,7 @@ async function tabOrder(panel, ctx) {
       };
       if (sel.value) q.sales_id = 'eq.' + sel.value;
       const idTampil = new Set(tampil.map(({ i }) => String(i.id)));
-      const tempoPer = new Map(tampil.map(({ i }) => [String(i.id), teksTempo(i, '')]));
+      const tempoPer = new Map(tampil.map(({ p, i }) => [String(i.id), tempoBaris(p, i, '')]));
       const tp = (r) => tempoPer.get(String(r.item_id)) || '';
       const baris = (await db.pilih('v_ekspor', q)).filter((r) => idTampil.has(String(r.item_id)));
       if (!baris.length) { pesan('Tidak ada data untuk diunduh.', 'salah'); return; }
@@ -773,6 +790,17 @@ function teksTempo(i, kosong = '—') {
   const k = tempoItem(i);
   return k ? `${k.tempo_hari} hari` : kosong;
 }
+/** Tempo satu baris rekap: order CASH dibayar tunai, tempo barangnya tidak berlaku. */
+function tempoBaris(p, i, kosong = '—') {
+  return p.bayar_cash ? 'CASH' : teksTempo(i, kosong);
+}
+const FMT_JAM_TAMBAH = new Intl.DateTimeFormat('id-ID', {
+  timeZone: 'Asia/Jakarta', hour: '2-digit', minute: '2-digit',
+});
+/** Jam barang tambahan dimasukkan sales, mis. "14.05". */
+function jamTambah(i) {
+  return i.ditambah_pada ? FMT_JAM_TAMBAH.format(new Date(i.ditambah_pada)) : '';
+}
 
 /* ============================================================
    CATATAN TAMBAHAN DARI SALES — dipakai rincian order
@@ -817,8 +845,12 @@ function bukaUbahOrder(p, ctx, selesai) {
     awal: {
       toko: { id: p.toko_id, nama: p.toko_nama },
       catatan: p.catatan || '',
+      cash: !!p.bayar_cash,
       item,
     },
+    // harga terakhir SALES PEMBUAT order ini ke toko itu, bukan milik admin
+    ambilHargaTerakhir: (tokoId) => db.rpc('harga_terakhir', { p_toko_id: tokoId, p_sales_id: p.sales_id }),
+    ketHargaLalu: 'Terakhir sales ini ke toko ini',
   });
   tirai.querySelector('#u-form').appendChild(form.el);
 

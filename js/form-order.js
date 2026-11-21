@@ -5,7 +5,11 @@
 
 import { ikon } from './ikon.js';
 import { buatPilih } from './pilih.js';
-import { rupiah, angka, keAngka, keJumlah, pesan, tanya } from './util.js';
+import { esc, rupiah, angka, keAngka, keJumlah, pesan, tanya } from './util.js';
+
+const F_TGL = new Intl.DateTimeFormat('id-ID', { day: 'numeric', month: 'short', timeZone: 'Asia/Jakarta' });
+/** "12 Nov" — cukup untuk "kapan terakhir"; tahunnya hampir selalu tahun ini. */
+const tglSingkat = (iso) => (iso ? F_TGL.format(new Date(iso + 'T00:00:00+07:00')) : '');
 
 /**
  * Keterangan koli di bawah Jumlah: "1 koli = 144 PCS", atau setelah jumlah
@@ -29,6 +33,12 @@ export function teksKoli(qty, isi, sat) {
  * @param {object} [o.awal]            isi awal: {toko:{id,nama,info}, catatan, item:[...]}
  * @param {boolean} [o.pakaiCatatan]   tampilkan kotak catatan (default true)
  * @param {() => void} [o.saatUbah]    dipanggil setiap ada perubahan
+ * @param {(toko:object|null, slot:HTMLElement) => void} [o.saatToko]
+ *                                     dipanggil saat toko dipilih/diganti (juga untuk isi awal);
+ *                                     `slot` = tempat kosong di bawah pilihan toko
+ * @param {(tokoId:number) => Promise<Array>} [o.ambilHargaTerakhir]
+ *                                     harga terakhir per barang ke toko itu (RPC harga_terakhir)
+ * @param {string} [o.ketHargaLalu]    awalan keterangannya, default "Terakhir ke toko ini"
  * @returns {{el:HTMLElement, baca:Function, total:Function, salah:Function, fokusToko:Function}}
  */
 let nomorForm = 0;
@@ -50,12 +60,16 @@ export function buatFormOrder(o) {
       <button type="button" class="btn garis" data-aksi="tambah">+ Tambah barang</button>
     </div>
 
-    ${pakaiCatatan ? `
     <div class="kartu fo-catatan">
-      <label class="label" for="catatan-${uid}">Catatan</label>
+      <button type="button" class="tombol-cash" data-slot="cash" aria-pressed="false">
+        <span class="kotak-cash" aria-hidden="true">${ikon('centang', 16)}</span>
+        <span class="teks-cash"><b>CASH</b><small>Ketuk kalau toko bayar tunai</small></span>
+      </button>
+      ${pakaiCatatan ? `
+      <label class="label" for="catatan-${uid}" style="margin-top:14px">Catatan</label>
       <textarea id="catatan-${uid}" data-slot="catatan"
-                placeholder="Contoh: kirim besok pagi, minta nota terpisah…"></textarea>
-    </div>` : ''}
+                placeholder="Contoh: kirim besok pagi, minta nota terpisah…"></textarea>` : ''}
+    </div>
 
     <div class="total-kotak fo-total">
       <span class="lbl">Total order</span>
@@ -66,6 +80,40 @@ export function buatFormOrder(o) {
   const slotItem = el.querySelector('[data-slot="item"]');
   const elCatatan = el.querySelector('[data-slot="catatan"]');
   const elTotal = el.querySelector('[data-slot="total"]');
+  const elCash = el.querySelector('[data-slot="cash"]');
+
+  // ---------------- CASH ----------------
+  // Satu ketukan menggantikan catatan "cash"/"kontan" yang dulu diketik
+  // (pemilik, 21 Nov 2026). Di rekap admin tampil sebagai tempo "CASH".
+  let cash = false;
+  function aturCash(v) {
+    cash = !!v;
+    elCash.classList.toggle('aktif', cash);
+    elCash.setAttribute('aria-pressed', String(cash));
+    elCash.querySelector('small').textContent = cash ? 'Toko bayar tunai — bukan tempo' : 'Ketuk kalau toko bayar tunai';
+  }
+  elCash.addEventListener('click', () => { aturCash(!cash); o.saatUbah?.(); });
+
+  // ---------------- harga terakhir per toko (milik sales ini) ----------------
+  // Harga hampir selalu hasil nego per toko; harga yang sama dengan order
+  // terakhir ke toko itu terulang 94% kali. Server hanya mengirim harga dari
+  // sales yang sedang masuk — harga sales lain ke toko yang sama tidak terlihat.
+  const ketHargaLalu = o.ketHargaLalu || 'Terakhir ke toko ini';
+  let hargaLalu = new Map();   // barang_id -> {harga, harga_per_kg, tanggal}
+  let nomorHarga = 0;
+  async function muatHargaLalu(t) {
+    const no = ++nomorHarga;
+    hargaLalu = new Map();
+    items.forEach((b) => b.terapkanHargaLalu());
+    if (!o.ambilHargaTerakhir || !t?.id) { ubah(); return; }
+    try {
+      const rows = await o.ambilHargaTerakhir(t.id);
+      if (no !== nomorHarga) return;   // toko sudah diganti lagi
+      hargaLalu = new Map((rows || []).map((r) => [String(r.barang_id), r]));
+      items.forEach((b) => b.terapkanHargaLalu());
+      ubah();
+    } catch { /* tanpa sinyal: tetap pakai harga rekomendasi */ }
+  }
 
   // ---------------- toko ----------------
   function dataToko() {
@@ -91,9 +139,17 @@ export function buatFormOrder(o) {
           { kunci: 'semua', teks: 'Semua toko', uji: () => true },
         ]
       : null,
-    saatPilih: () => ubah(),
+    saatPilih: () => {
+      ubah();
+      const t = pilihToko.nilai();
+      muatHargaLalu(t);
+      o.saatToko?.(t, slotTokoEkstra);
+    },
   });
   slotToko.appendChild(pilihToko.el);
+  const slotTokoEkstra = document.createElement('div');
+  slotTokoEkstra.className = 'toko-ekstra';
+  slotToko.appendChild(slotTokoEkstra);
 
   // ---------------- item ----------------
   const items = [];
@@ -136,7 +192,9 @@ export function buatFormOrder(o) {
   }
 
   function tambahItem(awal) {
-    const baris = { satuan: 'PCS', beratKg: null, isiKoli: null };
+    // hargaOtomatis: harga diisi aplikasi (rekomendasi / harga terakhir), belum
+    // diketik sales — boleh diganti otomatis kalau tokonya diganti.
+    const baris = { satuan: 'PCS', beratKg: null, isiKoli: null, rek: 0, hargaOtomatis: false };
 
     const kotak = document.createElement('div');
     kotak.className = 'item';
@@ -158,6 +216,7 @@ export function buatFormOrder(o) {
           <label class="label label-harga">Harga satuan</label>
           <input type="text" class="harga" inputmode="numeric" placeholder="0" enterkeyhint="done">
           <div class="bantuan rekom">&nbsp;</div>
+          <button type="button" class="harga-lalu" hidden></button>
         </div>
       </div>
       <div class="sub-item"><span>Subtotal</span><b class="sub">Rp 0</b></div>`;
@@ -169,6 +228,7 @@ export function buatFormOrder(o) {
     const elKoli = kotak.querySelector('.koli-teks');
     const elRekom = kotak.querySelector('.rekom');
     const elLabelHarga = kotak.querySelector('.label-harga');
+    const elLalu = kotak.querySelector('.harga-lalu');
 
     const pilihBarang = buatPilih({
       label: 'Nama barang',
@@ -191,19 +251,28 @@ export function buatFormOrder(o) {
           baris.satuan = e.satuan;
           baris.beratKg = e.berat_kg || null;
           baris.isiKoli = e.isi_koli || null;
+          baris.rek = rek;
+          // harga awalan: harga terakhir sales ini ke toko ini, kalau ada; kalau
+          // tidak, harga rekomendasi (untuk barang per-kilo = harga per KG)
+          const awalan = hargaAwalan(v.id);
           if (baris.beratKg) {
             elLabelHarga.textContent = 'Harga per kg';
             inHarga.placeholder = 'harga 1 kg';
             elSatuan.textContent = `satuan: ${e.satuan} · 1 ${e.satuan} = ${angka(baris.beratKg)} kg`;
-            // harga_rekomendasi barang per-kilo = harga per KG; isi sebagai awalan
-            if (!sama) inHarga.value = rek ? angka(rek) : '';
+            if (!sama || baris.hargaOtomatis) {
+              inHarga.value = awalan ? angka(awalan) : '';
+              baris.hargaOtomatis = true;
+            }
           } else {
             elLabelHarga.textContent = 'Harga satuan';
             inHarga.placeholder = '0';
             elSatuan.textContent = 'satuan: ' + e.satuan;
             elRekom.textContent = rek ? 'Rekomendasi ' + rupiah(rek) : 'Belum ada harga di daftar — isi sendiri';
             // Pilihan pertama: harga yang sudah diketik sebelum memilih barang dibiarkan.
-            if (ganti || !keAngka(inHarga.value)) inHarga.value = rek ? angka(rek) : '';
+            if (ganti || !keAngka(inHarga.value) || baris.hargaOtomatis) {
+              inHarga.value = awalan ? angka(awalan) : '';
+              baris.hargaOtomatis = true;
+            }
           }
         } else {
           baris.satuan = 'PCS';
@@ -213,8 +282,10 @@ export function buatFormOrder(o) {
           inHarga.placeholder = '0';
           elSatuan.textContent = 'satuan: PCS (barang baru)';
           elRekom.textContent = 'Barang baru — isi harga sendiri';
+          baris.rek = 0;
           if (ganti) inHarga.value = '';
         }
+        tulisKetLalu();
         ubah();
         if (!keJumlah(inQty.value)) inQty.focus();
       },
@@ -222,8 +293,42 @@ export function buatFormOrder(o) {
     kotak.querySelector('[data-slot="pilih"]').appendChild(pilihBarang.el);
     baris.bukaPilih = () => pilihBarang.buka();
 
+    /** Harga yang dipakai sebagai awalan untuk barang ini (0 = tidak ada). */
+    function hargaAwalan(id) {
+      const lalu = id !== null && id !== undefined ? hargaLalu.get(String(id)) : null;
+      if (lalu) return Number(baris.beratKg ? lalu.harga_per_kg : lalu.harga) || baris.rek;
+      return baris.rek;
+    }
+    /** Keterangan "Terakhir ke toko ini: Rp …" — diketuk = harganya dipakai. */
+    function tulisKetLalu() {
+      const id = pilihBarang.nilai()?.id;
+      const lalu = id !== null && id !== undefined ? hargaLalu.get(String(id)) : null;
+      const h = lalu ? Number(baris.beratKg ? lalu.harga_per_kg : lalu.harga) : 0;
+      elLalu.hidden = !h;
+      if (h) {
+        elLalu.dataset.harga = String(h);
+        elLalu.innerHTML = `${esc(ketHargaLalu)}: <b>${esc(rupiah(h))}${baris.beratKg ? '/kg' : ''}</b>`
+          + ` · ${esc(tglSingkat(lalu.tanggal))}`;
+      }
+    }
+    // Toko diganti: keterangan ikut, dan harga yang masih buatan aplikasi
+    // (belum diketik sales) diganti harga terakhir toko yang baru.
+    baris.terapkanHargaLalu = () => {
+      tulisKetLalu();
+      const id = pilihBarang.nilai()?.id;
+      if (baris.hargaOtomatis && id !== null && id !== undefined) {
+        const h = hargaAwalan(id);
+        inHarga.value = h ? angka(h) : '';
+      }
+    };
+    elLalu.addEventListener('click', () => {
+      inHarga.value = angka(Number(elLalu.dataset.harga) || 0);
+      baris.hargaOtomatis = true;
+      ubah();
+    });
+
     inQty.addEventListener('input', ubah);
-    inHarga.addEventListener('input', ubah);
+    inHarga.addEventListener('input', () => { baris.hargaOtomatis = false; ubah(); });
     inHarga.addEventListener('blur', () => {
       const n = keAngka(inHarga.value);
       inHarga.value = n ? angka(n) : '';
@@ -279,6 +384,7 @@ export function buatFormOrder(o) {
         baris.satuan = d.satuan || 'PCS';
         baris.beratKg = Number(d.berat_kg) || null;
         baris.isiKoli = koliDari(d.barang_id);
+        baris.rek = Number(o.status.barang.find((x) => String(x.id) === String(d.barang_id))?.harga_rekomendasi) || 0;
         let info = '';
         if (baris.beratKg) {
           info = `harga per kg · 1 ${baris.satuan} = ${angka(baris.beratKg)} kg`;
@@ -293,6 +399,7 @@ export function buatFormOrder(o) {
       if (d.qty) inQty.value = angka(d.qty);
       const h = baris.beratKg ? d.harga_per_kg : d.harga;
       if (h) inHarga.value = angka(h);
+      tulisKetLalu();
     };
 
     items.push(baris);
@@ -336,10 +443,19 @@ export function buatFormOrder(o) {
   // ---------------- isi awal ----------------
   const awal = o.awal;
   if (awal?.toko) pilihToko.set(awal.toko);
+  aturCash(awal?.cash);
   if (awal?.catatan && elCatatan) elCatatan.value = awal.catatan;
   if (awal?.item?.length) awal.item.forEach((i) => tambahItem(i));
   else tambahItem();
   ubah();
+  // Ditunda satu putaran: pemanggil baru menerima `form` setelah fungsi ini selesai.
+  if (awal?.toko) {
+    setTimeout(() => {
+      const t = pilihToko.nilai();
+      muatHargaLalu(t);
+      o.saatToko?.(t, slotTokoEkstra);
+    }, 0);
+  }
 
   // ---------------- keluaran ----------------
   function baca() {
@@ -348,6 +464,7 @@ export function buatFormOrder(o) {
       toko_id: t?.id ?? null,
       toko_nama: (t?.nama || '').trim(),
       catatan: (elCatatan?.value || '').trim(),
+      cash,
       item: items.map((b) => b.baca()).filter((d) => d.barang_nama || d.qty || d.harga),
     };
   }
